@@ -261,6 +261,7 @@ pushRock:
 			jne		notOnPlate
 				mov		DWORD [plateDoors], 1
 				jmp		notOffPlate
+				
 			notOnPlate:
 				;if the rock is pushed off of a plate, close the plate doors
 			cmp		BYTE [board + eax], ROCK_CHAR2
