@@ -239,16 +239,16 @@ pushRock:
 			;Load the address of the next space in the array 
 			;according to the direction the rock is moivng
 		nextDir1:
-			lea		ebx, BYTE [board + eax - WIDTH]
+			lea		ebx, [board + eax - WIDTH]
 			jmp		moveRock
 		nextDir2:
-			lea		ebx, BYTE [board + eax - 1]
+			lea		ebx, [board + eax - 1]
 			jmp		moveRock
 		nextDir3:
-			lea		ebx, BYTE [board + eax + WIDTH]
+			lea		ebx, [board + eax + WIDTH]
 			jmp		moveRock
 		nextDir4:
-			lea		ebx, BYTE [board + eax + 1]
+			lea		ebx, [board + eax + 1]
 			jmp		moveRock
 		moveRock:
 			;Check if the character the rock was pushed into is a valid move
@@ -404,7 +404,7 @@ render:
 						; first, add the player's color code to the buffer
 					mov		esi, 0
 					playerColorLoop:
-					lea		edi, playerColor
+					lea		edi, [playerColor]
 					cmp		BYTE [edi + esi],0
 					je		endPlayerColorLoop
 						mov		dl, BYTE [edi + esi]
