@@ -193,6 +193,10 @@ main:
 			add		eax, DWORD [xpos]
 			mov		cl, BYTE [board + eax]	
 			call	checkCharTest
+
+			cmp		DWORD[currentBoard], edx
+			jne		GOHERE
+
 		jmp		game_loop
 		game_loop_end:
 			; restore old terminal functionality
@@ -205,19 +209,60 @@ main:
 checkCharTest:
 	push	ebp
 	mov		ebp, esp
-		cmp		BYTE [checkArr + ecx], 120
-		je		pBlocked
-		cmp		BYTE [checkArr + ecx], 66
+		mov		edx, DWORD[currentBoard]
+		cmp		BYTE [checkArr + ecx], ' '
+		je		checkDone
+		cmp		BYTE [checkArr + ecx], 'B'
 		je		pRock
-		cmp		BYTE [checkArr + ecx], 112
+		cmp		BYTE [checkArr + ecx], 'p'
 		je		pRock
-		jmp		checkDone
-		pBlocked:
-			mov		DWORD [xpos], esi
-			mov		DWORD [ypos], edi
-			jmp 	checkDone
+		cmp		BYTE [checkArr + ecx], 'L'
+		je		pLever
+		cmp		BYTE [checkArr + ecx], '|'
+		je		pPDoors
+		cmp		BYTE [checkArr + ecx], '_'
+		je		pLDoor
+		cmp		BYTE [checkArr + ecx], 'S'
+		je		pStairs
+		jmp		pDefault
 		pRock:
 			call	pushRock
+			jmp		checkDone
+		pLever:
+			cmp	DWORD [leverDoors], 0
+			jne		isActive
+				mov		DWORD [leverDoors], 1
+				jmp		pDefault
+			isActive:
+			mov		DWORD [leverDoors], 0
+			jmp		pDefault
+		pPDoors:
+			cmp		DWORD [plateDoors], 0
+			je		pDefault
+				jmp		checkDone
+		pLDoor:
+			cmp		DWORD [leverDoors], 0
+			je		pDefault
+				jmp		checkDone
+		pStairs:
+			; clear the screen
+			push	clear_screen_code
+			call	printf
+			add		esp, 4
+
+			push	win_str
+			call	printf
+			add		esp, 4
+
+			push	2
+			call	sleep
+			add		esp, 4
+
+			inc		DWORD [currentBoard]
+			jmp		checkDone
+		pDefault:
+			mov		DWORD [xpos], esi
+			mov		DWORD [ypos], edi
 		checkDone:
 	mov		esp, ebp
 	pop		ebp
@@ -254,35 +299,30 @@ pushRock:
 			;Check if the character the rock was pushed into is a valid move
 			;if not, reset the position of the player
 		mov		cl, BYTE [ebx]
-		cmp		BYTE [rockArr + ecx], 120
+		cmp		BYTE [rockArr + ecx], 'x'
 		jne		pathBlocked
-				;if the rock is pushed onto a plate, open the plate doors
-			cmp		BYTE [ebx], PRESS_CHAR
-			jne		notOnPlate
-				mov		DWORD [plateDoors], 1
-				jmp		notOffPlate
-				
-			notOnPlate:
-				;if the rock is pushed off of a plate, close the plate doors
+				;if the rock is to be pushed off of a plate, close the plate doors
 			cmp		BYTE [board + eax], ROCK_CHAR2
-			jne		notOffPlate
+			jne		stillOnPlate
 				mov		DWORD [plateDoors], 0
 				mov		BYTE [board + eax], PRESS_CHAR
-				jmp		movedOffPlate
-			notOffPlate:
-				;if rock wasn't on a plate and can move, replace it
-				;with empty space
-			mov		BYTE [board + eax], EMPTY_CHAR
-			movedOffPlate:
-				;if platedoors == 1, move boulder-on-plate into EBX, else
-				;move boulder into EBX
-			cmp		DWORD [plateDoors], 1
-			jne		doorsClosed
+				jmp		mvRock
+			stillOnPlate:
+			
+				;if the rock is pushed onto a plate, open the plate doors
+			cmp		BYTE [ebx], PRESS_CHAR
+			jne		noPlate
+				mov		DWORD [plateDoors], 1
 				mov		BYTE [ebx], ROCK_CHAR2
-				jmp		doorsOpen
-			doorsClosed:
-				mov		BYTE [ebx], ROCK_CHAR1
-			doorsOpen:
+				mov		BYTE [board + eax], EMPTY_CHAR
+				jmp		rockend
+			noPlate:
+
+				;if rock wasn't on a plate and can move, replace it
+				;with empty space and move rock
+			mov		BYTE [board + eax], EMPTY_CHAR
+			mvRock:
+			mov		BYTE [ebx], ROCK_CHAR1
 			jmp		rockend
 		pathBlocked:
 		mov		DWORD [xpos], esi
@@ -413,7 +453,7 @@ render:
 					inc		esi
 					jmp		playerColorLoop
 					endPlayerColorLoop:
-						;then add the player characer to the buffer
+						;then add the player character to the buffer
 					mov		BYTE [frameBuffer + ecx], PLAYER_CHAR
 					inc		ecx
 					jmp		print_end
@@ -456,88 +496,80 @@ charRender:
 		cmp		bl, EMPTY_CHAR
 		je		isSpace
 				;wall
-			cmp		bl, WALL_CHAR
-			jne		noWall
+			cmp		BYTE [checkArr + ebx], 'x'
+			je		rWall
+			cmp		BYTE [checkArr + ebx], 'K'
+			je		rKey
+			cmp		BYTE [checkArr + ebx], 'B'
+			je		rRock
+			cmp		BYTE [checkArr + ebx], 'p'
+			je		rRock
+			cmp		BYTE [checkArr + ebx], 'P'
+			je		rPlate
+			cmp		BYTE [checkArr + ebx], 'L'
+			je		rLever
+			cmp		BYTE [checkArr + ebx], '_'
+			je		rLDoor
+			cmp		BYTE [checkArr + ebx], '|'
+			je		rPlateDoor
+			cmp		BYTE [checkArr + ebx], 'S'
+			je		rStairs
+			jmp		rDefault
+
+			rWall:
 				mov		DWORD [colorCode], 0
-			noWall:
-				;Key
-			cmp		bl, KEY_CHAR
-			jne		noKey
+				jmp		rDefault
+			rKey:
 				mov		DWORD [colorCode], 1
-			noKey:
-				;key door
-			cmp		bl, KEY_DOOR_CHAR
-			jne		noKeyDoor
-				mov		DWORD [colorCode], 1
-				mov		bl, PRESS_DOOR_CHAR1
-			noKeyDoor:
-				;stairs
-			cmp		bl, 'S'
-			jne		notStairs
-				mov		BYTE [colorCode], 6
-			notStairs:
-				;pressure plate
-			cmp		bl, PRESS_CHAR
-			je		isPressed
-			cmp		bl, ROCK_CHAR1
-			je		isPressed
-			cmp		bl,	ROCK_CHAR2
-			jne		not_pressed
-			isPressed:
-				cmp		bl,	PRESS_CHAR
-				jne		notRock
-					mov		DWORD [colorCode], 3
-					jmp		not_pressed
-				notRock:
+				cmp		bl, KEY_DOOR_CHAR
+				jne		rDefault
+					mov		bl, PRESS_DOOR_CHAR1
+					jmp		rDefault
+			rRock:
 				mov		DWORD [colorCode], 2
-				mov		bl, 'B'
-			not_pressed:
-				;Lever
-			cmp		bl, LEVER_CHAR1
-			je		yesLever
-			cmp		bl,	LEVER_CHAR2
-			jne		noLever
-			yesLever:
+				mov		bl, 66
+				jmp		rDefault
+			rPlate:
+				mov		DWORD [colorCode], 3
+				jmp		rDefault
+			rLever:
 				mov		DWORD [colorCode], 4
-			noLever:
-				;Pressure plate door
-			cmp		BYTE [board + eax], PRESS_DOOR_CHAR1
-			je		isPressDoor
-			cmp		BYTE [board + eax], PRESS_DOOR_CHAR2
-			jne		notPressDoor
-			isPressDoor:	
-				cmp		DWORD [plateDoors], 1
-				jne		pressNotOpen
+				cmp	DWORD [leverDoors], 0
+				jne		isActive2
+					mov		BYTE [board + eax], LEVER_CHAR1
+					mov		bl, LEVER_CHAR1
+					jmp		rDefault
+				isActive2:
+				mov		BYTE [board + eax], LEVER_CHAR2
+				mov		bl, LEVER_CHAR2
+				jmp		rDefault
+			rLDoor:
+				mov		DWORD [colorCode], 4
+				cmp		DWORD [leverDoors], 0
+				je		lDoorOpen
+					mov		BYTE [board + eax], LEVER_DOOR_CHAR2
+					mov		bl, 'j'
+					jmp		rDefault
+				lDoorOpen:
+				mov		BYTE [board + eax], LEVER_DOOR_CHAR1
+				mov		bl, LEVER_DOOR_CHAR1
+				jmp		rDefault
+			rPlateDoor:
+				mov		DWORD [colorCode], 5
+				cmp		DWORD [plateDoors],1
+				jne		pNotOpen
 					mov		BYTE [board + eax], PRESS_DOOR_CHAR2
 					mov		bl, EMPTY_CHAR
-					jmp		pressOpen
-				pressNotOpen:
-				cmp		DWORD [plateDoors], 0
-				jne		pressOpen
-					mov		BYTE [board + eax], PRESS_DOOR_CHAR1
-					mov		bl, PRESS_DOOR_CHAR1
-				pressOpen:
-				mov		DWORD [colorCode], 5
-			notPressDoor:
-				;Lever door
-			cmp		BYTE [board + eax], LEVER_DOOR_CHAR1
-			je		isLeverDoor
-			cmp		BYTE [board + eax], LEVER_DOOR_CHAR2
-			jne		notLeverDoor
-			isLeverDoor:
-				cmp		DWORD [leverDoors], 1
-				jne		leverNotOpen
-					mov		BYTE [board + eax], LEVER_DOOR_CHAR2
-					mov		bl, EMPTY_CHAR
-					jmp		leverOpen
-				leverNotOpen:
-				cmp		DWORD [leverDoors], 0
-				jne		leverOpen
-					mov		BYTE [board + eax], LEVER_DOOR_CHAR1
-					mov		bl, LEVER_DOOR_CHAR1
-				leverOpen:
-				mov		DWORD [colorCode], 4
-			notLeverDoor:
+					jmp		rDefault
+				pNotOpen:
+				mov		BYTE [board + eax], PRESS_DOOR_CHAR1
+				mov		bl, PRESS_DOOR_CHAR1
+				jmp		rDefault
+			rStairs:
+				mov		DWORD [colorCode], 6
+				jmp		rDefault
+			rDefault:
+
 				;use the num in colorCode to load the correct code into edi
 			mov		esi, DWORD[colorCode]
 			mov		edi, DWORD[colorCodeArray + esi * 4]
@@ -574,31 +606,76 @@ init_arrs:
 			;loop through the board characters, making note of every one we come across
 		cmp		BYTE [possChars + esi], 0
 		je		endArrLoop
-				;compare the board location to a space, do stuff if it's not
+				;if the character has special interractions, make note of it
+				;otherwise, make checkArr[pos] == 'X'
+			mov		al, BYTE [possChars + esi]
+				;is it a space?
 			cmp		BYTE [possChars + esi], 32
-			je		charSpace
-					;if the character has special interractions, make note of it
-					;otherwise, make checkArr[pos] == 'X'
-				mov		al, BYTE [possChars + esi]
-					;is it a B?
-				cmp		BYTE [possChars + esi], 66
-				je		isRock
-					;is it a P?
-				cmp		BYTE [possChars + esi], 80
-				je		isPlate
-					;is it a rock on a plate?
-				cmp		BYTE [possChars + esi], 112
-				je		isRock
-				jmp		defaultOpt
-				isRock:
-					mov		BYTE [checkArr + eax], 66
-					jmp		charSpace
-				isPlate:
-					mov		BYTE [checkArr + eax], 80
-					jmp		charSpace
-				defaultOpt:
+			je		iSpace
+				;is it a B?
+			cmp		BYTE [possChars + esi], 66
+			je		isRock
+				;is it a rock on a plate?
+			cmp		BYTE [possChars + esi], 112
+			je		isRock
+				;is it a P?
+			cmp		BYTE [possChars + esi], 80
+			je		isPlate
+				;is it a closed plate door?
+			cmp		BYTE [possChars + esi], 124
+			je		isPlateDoor
+				;is it an open plate door?
+			cmp		BYTE [possChars + esi], 92
+			je		isPlateDoor
+				;is it a lever 1?
+			cmp		BYTE [possChars + esi], 76
+			je		isLever
+				;is it a lever 2?
+			cmp		BYTE [possChars + esi], 108
+			je		isLever
+				;is it stairs?
+			cmp		BYTE [possChars + esi], 83
+			je		isStairs
+				;is it a key?
+			cmp		BYTE [possChars + esi], 75
+			je		isKey
+				;is it a key door?
+			cmp		BYTE [possChars + esi], 65
+			je		isKey
+				;is it a closed lever door?
+			cmp		BYTE [possChars + esi], 95
+			je		isLDoor
+				;is it an open lever door?
+			cmp		BYTE [possChars + esi], 106
+			je		isLDoor
+			jmp		defaultOpt
+			iSpace:
+				mov		BYTE [checkArr + eax], 32
+				jmp		charPut
+			isRock:
+				mov		BYTE [checkArr + eax], 66
+				jmp		charPut
+			isPlate:
+				mov		BYTE [checkArr + eax], 80
+				jmp		charPut
+			isPlateDoor:
+				mov		BYTE [checkArr + eax], 124
+				jmp		charPut
+			isLever:
+				mov		BYTE [checkArr + eax], 76
+				jmp		charPut
+			isStairs:
+				mov		BYTE [checkArr + eax], 83
+				jmp		charPut
+			isKey:
+				mov		BYTE [checkArr + eax], 75
+				jmp		charPut
+			isLDoor:
+				mov		BYTE [checkArr + eax], 95
+				jmp		charPut
+			defaultOpt:
 				mov		BYTE [checkArr + eax], 120
-			charSpace:
+			charPut:
 		inc		esi
 		jmp		arrLoop
 		endArrLoop:
