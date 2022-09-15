@@ -220,6 +220,8 @@ checkCharTest:
 		je		checkDone
 		cmp		BYTE [checkArr + ecx], 'B'
 		je		pRock
+		cmp		BYTE [checkArr + ecx], 'P'
+		je		checkDone
 		cmp		BYTE [checkArr + ecx], 'L'
 		je		pLever
 		cmp		BYTE [checkArr + ecx], '|'
@@ -583,7 +585,7 @@ charRender:
 				cmp		DWORD [leverDoors], 0
 				je		lDoorOpen
 					mov		BYTE [board + eax], LEVER_DOOR_CHAR2
-					mov		bl, 'j'
+					mov		bl, EMPTY_CHAR
 					jmp		rDefault
 				lDoorOpen:
 				mov		BYTE [board + eax], LEVER_DOOR_CHAR1
