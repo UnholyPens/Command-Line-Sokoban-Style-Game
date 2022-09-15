@@ -5,6 +5,7 @@
 %define	KEY_CHAR 'K'
 %define	ROCK_CHAR1 'B'
 %define	ROCK_CHAR2 'p'
+%define ROCK_CHAR3 'b'
 %define PRESS_CHAR 'P'
 %define PRESS_DOOR_CHAR1 '|'
 %define	PRESS_DOOR_CHAR2 '\'
@@ -31,10 +32,10 @@
 segment .data
 
 		; used to fopen() the board file defined above
-	board1_file			db "board2.txt",0
-	board2_file			db "board.txt",0
+	board1_file			db "board1.txt",0
+	board2_file			db "board2.txt",0
 	board3_file			db "board3.txt",0
-	boards				dd board1_file,board2_file,board3_file
+	boards				dd board1_file,board2_file,board3_file, 0
 		;these are the color codes used for various symbols
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
@@ -70,7 +71,7 @@ segment .data
 	win_str				db	"You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSBPA|LKlj \_",0
+	possChars			db	"pTSBPA|LKlj \_b",0
 
 segment .bss
 
@@ -119,6 +120,11 @@ main:
 		GOHERE:
 			;display the initial board, or update it to the next one
 		mov		eax, DWORD [currentBoard]
+		cmp		DWORD [boards + eax * 4], 0
+		jne		validBoard
+			inc		DWORD[gameEnd]
+			jmp		game_loop
+		validBoard:
 		push	DWORD [boards + eax * 4]
 		call	init_board
 			;initialize the checkArr and rockArr arrays with all the possible board characters
@@ -131,7 +137,7 @@ main:
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [plateDoors], 0
 		mov		DWORD [hasKey], 0
-		mov		DWORd [gameEnd], 0
+		mov		DWORD [gameEnd], 0
 			; the game happens in this loop
 			; the steps are...
 			;   1. render (draw) the current board
@@ -214,8 +220,6 @@ checkCharTest:
 		je		checkDone
 		cmp		BYTE [checkArr + ecx], 'B'
 		je		pRock
-		cmp		BYTE [checkArr + ecx], 'p'
-		je		pRock
 		cmp		BYTE [checkArr + ecx], 'L'
 		je		pLever
 		cmp		BYTE [checkArr + ecx], '|'
@@ -224,6 +228,8 @@ checkCharTest:
 		je		pLDoor
 		cmp		BYTE [checkArr + ecx], 'S'
 		je		pStairs
+		cmp		BYTE [checkArr + ecx], 'K'
+		je		pKey
 		jmp		pDefault
 		pRock:
 			call	pushRock
@@ -260,6 +266,19 @@ checkCharTest:
 
 			inc		DWORD [currentBoard]
 			jmp		checkDone
+		pKey:
+			cmp		BYTE [board + eax], 'K'
+			jne		notKey
+				mov		BYTE [board + eax], EMPTY_CHAR
+				inc		DWORD [hasKey]
+				jmp		checkDone
+			notKey:
+			cmp		DWORD [hasKey], 0
+			je		noKeys
+				mov		BYTE [board + eax], EMPTY_CHAR
+				dec		DWORD [hasKey]
+			noKeys:
+			jmp		pDefault
 		pDefault:
 			mov		DWORD [xpos], esi
 			mov		DWORD [ypos], edi
@@ -303,25 +322,43 @@ pushRock:
 		jne		pathBlocked
 				;if the rock is to be pushed off of a plate, close the plate doors
 			cmp		BYTE [board + eax], ROCK_CHAR2
-			jne		stillOnPlate
+			je		offPlate
+			cmp		BYTE [ebx], PRESS_CHAR
+			je		onPlate
+			cmp		BYTE [ebx], 'j'
+			je		onDoor
+			cmp		BYTE [board + eax], 'b'
+			je		offDoor
+			mov		BYTE [board + eax], EMPTY_CHAR
+			jmp		rockDefault
+			
+			offPlate:
 				mov		DWORD [plateDoors], 0
 				mov		BYTE [board + eax], PRESS_CHAR
-				jmp		mvRock
-			stillOnPlate:
-			
+				jmp		rockDefault
+			onPlate:
 				;if the rock is pushed onto a plate, open the plate doors
-			cmp		BYTE [ebx], PRESS_CHAR
-			jne		noPlate
 				mov		DWORD [plateDoors], 1
 				mov		BYTE [ebx], ROCK_CHAR2
 				mov		BYTE [board + eax], EMPTY_CHAR
 				jmp		rockend
-			noPlate:
+			onDoor:
+				;if the rock is pushed into an open lever door,
+				;move the rock through with the same method used 
+				;to move it onto a plate
+				mov		BYTE [ebx], 'b'
+				cmp		BYTE [board + eax], 'b'
+				jne		testing1
+					mov		BYTE [board + eax], 'j'
+					jmp		rockend
+				testing1:
+				mov		BYTE [board + eax], EMPTY_CHAR
+				jmp		rockend
+			offDoor:
+				mov		BYTE [board + eax], 'j'
+				jmp		rockDefault
 
-				;if rock wasn't on a plate and can move, replace it
-				;with empty space and move rock
-			mov		BYTE [board + eax], EMPTY_CHAR
-			mvRock:
+			rockDefault:
 			mov		BYTE [ebx], ROCK_CHAR1
 			jmp		rockend
 		pathBlocked:
@@ -502,8 +539,6 @@ charRender:
 			je		rKey
 			cmp		BYTE [checkArr + ebx], 'B'
 			je		rRock
-			cmp		BYTE [checkArr + ebx], 'p'
-			je		rRock
 			cmp		BYTE [checkArr + ebx], 'P'
 			je		rPlate
 			cmp		BYTE [checkArr + ebx], 'L'
@@ -527,7 +562,7 @@ charRender:
 					jmp		rDefault
 			rRock:
 				mov		DWORD [colorCode], 2
-				mov		bl, 66
+				mov		bl, 'B'
 				jmp		rDefault
 			rPlate:
 				mov		DWORD [colorCode], 3
@@ -618,6 +653,9 @@ init_arrs:
 				;is it a rock on a plate?
 			cmp		BYTE [possChars + esi], 112
 			je		isRock
+				;is it a rock on an open lever door?
+			cmp		BYTE [possChars + esi], 98
+			je		isRock
 				;is it a P?
 			cmp		BYTE [possChars + esi], 80
 			je		isPlate
@@ -691,6 +729,8 @@ init_arrs:
 			cmp		BYTE [possChars + esi], 32
 			je		validChar
 			cmp		BYTE [possChars + esi], 80
+			je		validChar
+			cmp		BYTE [possChars + esi], 106
 			je		validChar
 			jmp		blocked
 			validChar:
