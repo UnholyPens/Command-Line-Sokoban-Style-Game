@@ -467,15 +467,15 @@ render:
 					inc		ecx
 					jmp		print_end
 				print_board:
-						; otherwise print whatever's in the buffer
-					mov		eax, DWORD [ebp - 4]
-					mov		ebx, WIDTH
-					mul		ebx
-					add		eax, DWORD [ebp - 8]
-					mov		ebx, 0
-					mov		bl, BYTE [board + eax]
-						;render the character
-					call	charRender
+					; otherwise print whatever's in the buffer
+				mov		eax, DWORD [ebp - 4]
+				mov		ebx, WIDTH
+				mul		ebx
+				add		eax, DWORD [ebp - 8]
+				mov		ebx, 0
+				mov		bl, BYTE [board + eax]
+					;render the character
+				call	charRender
 				print_end:
 			inc		DWORD [ebp - 8]
 			jmp		x_loop_start
@@ -504,7 +504,6 @@ charRender:
 			;change the symbol and color accordingly, if it's not a space
 		cmp		bl, ' '
 		je		isSpace
-				;wall
 			cmp		BYTE [checkArr + ebx], 'x'
 			je		rWall
 			cmp		BYTE [checkArr + ebx], 'K'
@@ -522,7 +521,6 @@ charRender:
 			cmp		BYTE [checkArr + ebx], 'S'
 			je		rStairs
 			jmp		rDefault
-
 			rWall:
 				mov		DWORD [colorCode], 0
 				jmp		rDefault
@@ -576,7 +574,6 @@ charRender:
 				mov		DWORD [colorCode], 6
 				jmp		rDefault
 			rDefault:
-
 				;use the num in colorCode to load the correct code into edi
 			mov		esi, DWORD[colorCode]
 			mov		edi, DWORD[colorCodeArray + esi * 4]
@@ -591,15 +588,10 @@ charRender:
 			inc		esi
 			jmp		colorLoop
 			endColorLoop:
-				;load the actual character into the frame buffer
-			mov		BYTE [frameBuffer + ecx], bl
-			inc		ecx
-			jmp		done
 		isSpace:
-			;load the actual character into the frame buffer
+			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], bl
 		inc		ecx
-		done:
 	mov		esp, ebp
 	pop		ebp
 	ret
