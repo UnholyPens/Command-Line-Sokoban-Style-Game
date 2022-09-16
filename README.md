@@ -1,7 +1,10 @@
 # Command Line Sokoban Style
 A Sokoban-style puzzle game that is played through the command line interface. 
 
-Controls are listed at the top, although pressing "h" for help/hints currently doesn't work.
+This is a relatively simple game that is played through the command line, programmed in x86 assembly, and compiled using Make. Initially made as a final project for an Assembly Language course, I've continued working on it as a sort of personal challenge. 
+
+
+Controls are listed at the top of the terminal, although pressing "h" for help/hints currently doesn't work.
 
 Game objects are color coded, for ease of use. For example, all lever-related objects are blue, and all key-related objects are yellow.
 
