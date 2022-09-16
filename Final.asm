@@ -560,7 +560,7 @@ charRender:
 				mov		DWORD [colorCode], 1
 				cmp		bl, KEY_DOOR_CHAR
 				jne		rDefault
-					mov		bl, PRESS_DOOR_CHAR1
+					mov		bl, '#'
 					jmp		rDefault
 			rRock:
 				mov		DWORD [colorCode], 2
@@ -589,7 +589,7 @@ charRender:
 					jmp		rDefault
 				lDoorOpen:
 				mov		BYTE [board + eax], LEVER_DOOR_CHAR1
-				mov		bl, LEVER_DOOR_CHAR1
+				mov		bl, '#'
 				jmp		rDefault
 			rPlateDoor:
 				mov		DWORD [colorCode], 5
@@ -600,7 +600,7 @@ charRender:
 					jmp		rDefault
 				pNotOpen:
 				mov		BYTE [board + eax], PRESS_DOOR_CHAR1
-				mov		bl, PRESS_DOOR_CHAR1
+				mov		bl, '#'
 				jmp		rDefault
 			rStairs:
 				mov		DWORD [colorCode], 6
