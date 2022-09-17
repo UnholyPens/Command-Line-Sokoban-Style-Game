@@ -59,6 +59,7 @@ segment .bss
 	currentBoard	resd	1
 	frameBuffer	resd	102400
 		;this array tells the checkChar function what the character in front is
+	lastChar	resb	1
 	checkArr	resb	256
 	rockArr		resb	256
 
@@ -578,20 +579,25 @@ charRender:
 			mov		esi, DWORD[colorCode]
 			mov		edi, DWORD[colorCodeArray + esi * 4]
 				;load each of the bytes for the color code into the frame buffer until we reach a null byte
-			mov		esi, 0
-			colorLoop:
-			cmp		BYTE [edi + esi],0
-			je		endColorLoop
-				mov		dl, BYTE [edi + esi]
-				mov		BYTE [frameBuffer + ecx], dl
-				inc		ecx
-			inc		esi
-			jmp		colorLoop
-			endColorLoop:
+			cmp		BYTE [lastChar], bl
+			je		redundantColor
+				mov		esi, 0
+				colorLoop:
+				cmp		BYTE [edi + esi],0
+				je		endColorLoop
+					mov		dl, BYTE [edi + esi]
+					mov		BYTE [frameBuffer + ecx], dl
+					inc		ecx
+				inc		esi
+				jmp		colorLoop
+				endColorLoop:
+			redundantColor:
 		isSpace:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], bl
 		inc		ecx
+			;save the last char that was printed
+		mov		BYTE [lastChar], bl
 	mov		esp, ebp
 	pop		ebp
 	ret
