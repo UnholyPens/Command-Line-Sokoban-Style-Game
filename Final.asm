@@ -40,7 +40,7 @@ segment .data
 	help_str			db 13,10,"Controls: w=UP / a=LEFT / s=DOWN / d=RIGHT / h=HINT / x=EXIT",13,10,10,0
 		;displays num keys
 	key_str				db	"Num keys: %d",10,13,0
-	win_str				db	"You win!",13,10,0
+	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
 	possChars			db	"pTSRPA|LKlj \_rBb%$",0
@@ -230,19 +230,15 @@ checkCharTest:
 			je		pDefault
 				jmp		checkDone
 		pStairs:
-			; clear the screen
-			push	clear_screen_code
-			call	printf
-			add		esp, 4
-
+				; clear the screen and print winstr
 			push	win_str
 			call	printf
 			add		esp, 4
-
+				;hold that on the screen
 			push	2
 			call	sleep
 			add		esp, 4
-
+				;inc the board counter
 			inc		DWORD [currentBoard]
 			jmp		checkDone
 		pKey:
@@ -628,7 +624,7 @@ charRender:
 				testLoop:
 				cmp		edi, edx
 				je		testPassed
-					cmp		BYTE [board + edi], 'B'
+					cmp		BYTE [board + edi], 'b'
 					jne		checkActive
 						jmp		testFailed
 					checkActive:

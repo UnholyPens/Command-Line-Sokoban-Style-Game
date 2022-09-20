@@ -1,7 +1,7 @@
-TTTbTTTTTBTTTTTTTT                
-T          T     T                
-T    B b   T     T                
-T          %  S  T                
-T    b B   T     T                
-T          T     T                
 TTTBTTTTTbTTTTTTTT                
+T          T     T                
+T    b B   T     T                
+T          %  S  T                
+T    B b   T     T                
+T          T     T                
+TTTbTTTTTBTTTTTTTT                
