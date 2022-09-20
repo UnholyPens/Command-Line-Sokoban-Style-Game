@@ -11,14 +11,18 @@ Game objects are color coded, for ease of use. For example, all lever-related ob
 
 Objects are as follows:
 
-B: Rock - A pushable object that can also be used to activate a pressure plate.
+R: Rock - A pushable object that can also be used to activate a pressure plate.
 
 K: Key - These are used to open key doors.
 
-P: Pressure Plate - When activated, all pressure plate doors will open. The player is not heavy enough to activate these, so a rock must be used instead
+P: Pressure Plate - When all pressure plates have been depressed all pressure plate doors will open. The player is not heavy enough to activate these, so a rock must be used instead
 
 S: Stairs - Interact with these to progress to the next level. 
 
 L: Lever - Interact wth this to open all of the lever doors in the level.
 
 T: Wall - Immovable, and impassable.
+
+B: Button - A button door will only open once all buttons have been activated. Currently, 'b' is inactive, and 'B' is active.
+
+#: Door - Simply a door blocking one's path. They are color coded to objects that pair with them, and will open depending on the requirements for each door.
