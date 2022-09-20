@@ -1,4 +1,4 @@
-# Command Line Sokoban Style
+# Command Line Sokoban Style Game
 A Sokoban-style puzzle game that is played through the command line interface. 
 
 This is a relatively simple game that is played through the command line, programmed in x86 assembly, and compiled using Make. It was initially made as a final project for an Assembly Language course, built upon some structural code given to me by my instructor, but I've since continued working on it as a sort of personal challenge. 
