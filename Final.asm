@@ -25,7 +25,9 @@ segment .data
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
-	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, leverColor, pressDoorColor, stairsColor
+	buttonColor			db	27,"[38;5;14m",0
+	activeBColor		db	27,"[38;5;1m",0
+	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, leverColor, pressDoorColor, stairsColor, buttonColor, activeBColor
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -41,7 +43,7 @@ segment .data
 	win_str				db	"You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSBPA|LKlj \_b",0
+	possChars			db	"pTSRPA|LKlj \_rBb%$",0
 
 segment .bss
 
@@ -189,7 +191,7 @@ checkCharTest:
 		mov		edx, DWORD[currentBoard]
 		cmp		BYTE [checkArr + ecx], ' '
 		je		checkDone
-		cmp		BYTE [checkArr + ecx], 'B'
+		cmp		BYTE [checkArr + ecx], 'R'
 		je		pRock
 		cmp		BYTE [checkArr + ecx], 'P'
 		je		checkDone
@@ -203,6 +205,10 @@ checkCharTest:
 		je		pStairs
 		cmp		BYTE [checkArr + ecx], 'K'
 		je		pKey
+		cmp		BYTE [checkArr + ecx], 'B'
+		je		pButton
+		cmp		BYTE [checkArr + ecx], '%'
+		je		pButtDoor
 		jmp		pDefault
 		pRock:
 			call	pushRock
@@ -252,6 +258,18 @@ checkCharTest:
 				dec		DWORD [hasKey]
 			noKeys:
 			jmp		pDefault
+		pButton:
+			cmp		BYTE [board + eax], 'B'
+			jne		notButt
+				mov		BYTE [board + eax], 'b'
+				jmp		pDefault
+			notButt:
+			mov		BYTE [board + eax], 'B'
+			jmp		pDefault
+		pButtDoor:
+			cmp		BYTE [board + eax], '%'
+			je		pDefault
+				jmp		checkDone
 		pDefault:
 			mov		DWORD [xpos], esi
 			mov		DWORD [ypos], edi
@@ -300,7 +318,7 @@ pushRock:
 			je		onPlate
 			cmp		BYTE [ebx], 'j'
 			je		onDoor
-			cmp		BYTE [board + eax], 'b'
+			cmp		BYTE [board + eax], 'r'
 			je		offDoor
 			mov		BYTE [board + eax], ' '
 			jmp		rockDefault
@@ -319,8 +337,8 @@ pushRock:
 				;if the rock is pushed into an open lever door,
 				;move the rock through with the same method used 
 				;to move it onto a plate
-				mov		BYTE [ebx], 'b'
-				cmp		BYTE [board + eax], 'b'
+				mov		BYTE [ebx], 'r'
+				cmp		BYTE [board + eax], 'r'
 				jne		testing1
 					mov		BYTE [board + eax], 'j'
 					jmp		rockend
@@ -332,7 +350,7 @@ pushRock:
 				jmp		rockDefault
 
 			rockDefault:
-			mov		BYTE [ebx], 'B'
+			mov		BYTE [ebx], 'R'
 			jmp		rockend
 		pathBlocked:
 		mov		DWORD [xpos], esi
@@ -501,6 +519,7 @@ render:
 charRender:
 	push	ebp
 	mov		ebp, esp
+		mov		edx, 0
 			;compare the current byte to the various game objects, then
 			;change the symbol and color accordingly, if it's not a space
 		cmp		bl, ' '
@@ -509,7 +528,7 @@ charRender:
 			je		rWall
 			cmp		BYTE [checkArr + ebx], 'K'
 			je		rKey
-			cmp		BYTE [checkArr + ebx], 'B'
+			cmp		BYTE [checkArr + ebx], 'R'
 			je		rRock
 			cmp		BYTE [checkArr + ebx], 'P'
 			je		rPlate
@@ -521,6 +540,10 @@ charRender:
 			je		rPlateDoor
 			cmp		BYTE [checkArr + ebx], 'S'
 			je		rStairs
+			cmp		BYTE [checkArr + ebx], 'B'
+			je		rButton
+			cmp		BYTE [checkArr + ebx], '%'
+			je		rButtDoor
 			jmp		rDefault
 			rWall:
 				mov		DWORD [colorCode], 0
@@ -533,7 +556,7 @@ charRender:
 					jmp		rDefault
 			rRock:
 				mov		DWORD [colorCode], 2
-				mov		bl, 'B'
+				mov		bl, 'R'
 				jmp		rDefault
 			rPlate:
 				mov		DWORD [colorCode], 3
@@ -562,22 +585,68 @@ charRender:
 				jmp		rDefault
 			rPlateDoor:
 				mov		DWORD [colorCode], 3
-				cmp		DWORD [plateDoors],1
-				jne		pNotOpen
-					mov		BYTE [board + eax], '\'
-					mov		bl, ' '
-					jmp		rDefault
-				pNotOpen:
+				mov		edx, WIDTH*HEIGHT
+				mov		edi, 0
+				plateLoop:
+				cmp		edi, edx
+				je		noPlates
+					cmp		BYTE [board + edi], 'P'
+					jne		checkPlates
+						jmp		plateFound
+					checkPlates:
+				inc		edi
+				jmp		plateLoop
+				noPlates:
+				mov		BYTE [board + eax], '\'
+				mov		bl, ' '
+				jmp		rDefault
+				plateFound:
 				mov		BYTE [board + eax], '|'
 				mov		bl, '#'
 				jmp		rDefault
+					;The following code has been commented due to the fact
+					;that it very well could come in handy in the future.
+			;	cmp		DWORD [plateDoors],1
+			;	jne		pNotOpen
+			;		mov		BYTE [board + eax], '\'
+			;		mov		bl, ' '
+			;		jmp		rDefault
+			;	pNotOpen:
+			;	mov		BYTE [board + eax], '|'
+			;	mov		bl, '#'
+			;	jmp		rDefault
 			rStairs:
 				mov		DWORD [colorCode], 6
+				jmp		rDefault
+			rButton:
+				mov		DWORD [colorCode], 7
+				jmp		rDefault
+			rButtDoor:
+				mov		DWORD [colorCode], 7
+				mov		edx, WIDTH*HEIGHT
+				mov		edi, 0
+				testLoop:
+				cmp		edi, edx
+				je		testPassed
+					cmp		BYTE [board + edi], 'B'
+					jne		checkActive
+						jmp		testFailed
+					checkActive:
+				inc		edi
+				jmp		testLoop
+				testPassed:
+				mov		BYTE [board + eax], '$'
+				mov		bl, ' '
+				jmp		rDefault
+				testFailed:
+				mov		BYTE [board + eax], '%'
+				mov		bl, '#'
 				jmp		rDefault
 			rDefault:
 				;use the num in colorCode to load the correct code into edi
 			mov		esi, DWORD[colorCode]
 			mov		edi, DWORD[colorCodeArray + esi * 4]
+				;if the character being loaded into the frame buffer isn't the same as the last one,
 				;load each of the bytes for the color code into the frame buffer until we reach a null byte
 			cmp		BYTE [lastChar], bl
 			je		redundantColor
@@ -596,7 +665,8 @@ charRender:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], bl
 		inc		ecx
-			;save the last char that was printed
+			;save the last char that was moved into the buffer 
+			;to prevent redudant color codes from being printed
 		mov		BYTE [lastChar], bl
 	mov		esp, ebp
 	pop		ebp
@@ -618,13 +688,13 @@ init_arrs:
 			cmp		BYTE [possChars + esi], ' '
 			je		iSpace
 				;is it a B?
-			cmp		BYTE [possChars + esi], 'B'
+			cmp		BYTE [possChars + esi], 'R'
 			je		isRock
 				;is it a rock on a plate?
 			cmp		BYTE [possChars + esi], 'p'
 			je		isRock
 				;is it a rock on an open lever door?
-			cmp		BYTE [possChars + esi], 'b'
+			cmp		BYTE [possChars + esi], 'r'
 			je		isRock
 				;is it a P?
 			cmp		BYTE [possChars + esi], 'P'
@@ -656,12 +726,24 @@ init_arrs:
 				;is it an open lever door?
 			cmp		BYTE [possChars + esi], 'j'
 			je		isLDoor
+				;is it a button?
+			cmp		BYTE [possChars + esi], 'B'
+			je		isButton
+				;is it an active button?
+			cmp		BYTE [possChars + esi], 'b'
+			je		isButton
+				;is it a closed button door?
+			cmp		BYTE [possChars + esi], '%'
+			je		isButtDoor
+				;is it an open button door?
+			cmp		BYTE [possChars + esi], '$'
+			je		isButtDoor
 			jmp		defaultOpt
 			iSpace:
 				mov		BYTE [checkArr + eax], ' '
 				jmp		charPut
 			isRock:
-				mov		BYTE [checkArr + eax], 'B'
+				mov		BYTE [checkArr + eax], 'R'
 				jmp		charPut
 			isPlate:
 				mov		BYTE [checkArr + eax], 'P'
@@ -680,6 +762,12 @@ init_arrs:
 				jmp		charPut
 			isLDoor:
 				mov		BYTE [checkArr + eax], '_'
+				jmp		charPut
+			isButton:
+				mov		BYTE [checkArr + eax], 'B'
+				jmp		charPut
+			isButtDoor:
+				mov		BYTE [checkArr + eax], '%'
 				jmp		charPut
 			defaultOpt:
 				mov		BYTE [checkArr + eax], 'x'

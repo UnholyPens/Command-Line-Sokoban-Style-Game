@@ -1,13 +1,7 @@
-TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-T                     |        K T
-T                     TTTTTTTTTTTT
-TTTTTTTTTTT           T           
-T                     T           
-TBBBBBT               T           
-T     T               TTTTTTT     
-TBBBBBT               A   S T     
-T  L  T               TTTTTTT     
-TTTTTTTT___TTTTTTTTTTTT           
-       T   T                      
-       T P T                      
-       TTTTT                      
+TTTbTTTTTBTTTTTTTT                
+T          T     T                
+T    B b   T     T                
+T          %  S  T                
+T    b B   T     T                
+T          T     T                
+TTTBTTTTTbTTTTTTTT                
