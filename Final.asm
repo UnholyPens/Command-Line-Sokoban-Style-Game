@@ -25,7 +25,10 @@ segment .data
 	stairsColor			db	27,"[38;5;124m",0
 	buttonColor			db	27,"[38;5;14m",0
 	activeBColor		db	27,"[38;5;1m",0
-	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, leverColor, pressDoorColor, stairsColor, buttonColor, activeBColor
+	gemColor			db	27,"[38;5;9m",0
+	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
+							leverColor, pressDoorColor, stairsColor, buttonColor, \
+							activeBColor, gemColor
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -41,7 +44,7 @@ segment .data
 	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSRPA|LKlj \_rBb%$",0
+	possChars			db	"pTSRPA|LKlj \_rBb%$Gg^",0
 
 segment .bss
 
@@ -591,6 +594,10 @@ charRender:
 			je		rButton
 			cmp		BYTE [checkArr + ebx], '%'
 			je		rButtDoor
+			cmp		BYTE [checkArr + ebx], 'G'
+			je		rGem
+			cmp		BYTE [checkArr + ebx], '^'
+			je		rGem
 			jmp		rDefault
 			rWall:
 				mov		DWORD [colorCode], 0
@@ -689,6 +696,9 @@ charRender:
 				mov		BYTE [board + eax], '%'
 				mov		bl, '#'
 				jmp		rDefault
+			rGem:
+				mov		DWORD [colorCode], 9
+				jmp		rDefault
 			rDefault:
 				;use the num in colorCode to load the correct code into edi
 			mov		esi, DWORD[colorCode]
@@ -785,6 +795,12 @@ init_arrs:
 				;is it an open button door?
 			cmp		BYTE [possChars + esi], '$'
 			je		isButtDoor
+				;is it a gem?
+			cmp		BYTE [possChars + esi], 'G'
+			je		isGem
+				;is it a gem on a plate?
+			cmp		BYTE [possChars + esi], 'g'
+			je		isGem
 			jmp		defaultOpt
 			iSpace:
 				mov		BYTE [checkArr + eax], ' '
@@ -815,6 +831,12 @@ init_arrs:
 				jmp		charPut
 			isButtDoor:
 				mov		BYTE [checkArr + eax], '%'
+				jmp		charPut
+			isGem:
+				mov		BYTE [checkArr + eax], 'G'
+				jmp		charPut
+			isGemDoor:
+				mov		BYTE [checkArr + eax], '^'
 				jmp		charPut
 			defaultOpt:
 				mov		BYTE [checkArr + eax], 'x'
