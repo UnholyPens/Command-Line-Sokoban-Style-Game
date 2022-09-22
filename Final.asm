@@ -8,11 +8,9 @@
 
 segment .data
 
-		; used to fopen() the board file defined above
-	board1_file			db "board1.txt",0
-	board2_file			db "board2.txt",0
-	board3_file			db "board3.txt",0
-	boards				dd board1_file,board2_file,board3_file, 0
+		;this file contains a list of all the game boards,
+		;and is used to dynamically fill boardArray
+	gameBoards			db "boards.txt",0
 		;these are the color codes used for various symbols
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
@@ -64,6 +62,9 @@ segment .bss
 	lastChar	resb	1
 	checkArr	resb	256
 	rockArr		resb	256
+		;This array stores the names of all the game boards, and is dynamically
+		;filled in loadBoards
+	boardArray	resb	145
 
 segment .text
 
@@ -80,6 +81,7 @@ segment .text
 	extern	fopen
 	extern	fread
 	extern	fgetc
+	extern	fgets
 	extern	fclose
 	extern 	sleep
 
@@ -90,16 +92,27 @@ main:
 		call	raw_mode_on
 			; read the game board file into the global variable
 		mov		DWORD [currentBoard], 0
+			;populate boardArray with all the game boards
+			;serves the same purpose as the boards array did
+		call	loadBoards
+
 		GOHERE:
-			;display the initial board, or update it to the next one
-		mov		eax, DWORD [currentBoard]
-		cmp		DWORD [boards + eax * 4], 0
+			;if the previous board was the last one, close the game
+		mov		eax, 12
+		mul		DWORD [currentBoard]
+		cmp		BYTE [boardArray + eax], 0
 		jne		validBoard
 			inc		DWORD[gameEnd]
 			jmp		game_loop
 		validBoard:
-		push	DWORD [boards + eax * 4]
+			;display the initial board, or update it to the next one
+		mov		eax, 12
+		mul		DWORD [currentBoard]
+		lea		ecx, [boardArray + eax]
+	
+		push	ecx
 		call	init_board
+		add		esp, 4
 			;initialize the checkArr and rockArr arrays with all the possible board characters
 			;these arrays are used later on for managing the interactions between the player and rock
 			;objects with the rest of the game board
@@ -371,6 +384,44 @@ raw_mode_off:
 	mov		ebp, esp
 		push	raw_mode_off_cmd
 		call	system
+		add		esp, 4
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+loadBoards:
+	push	ebp
+	mov		ebp, esp
+		sub		esp, 8
+			;open the file
+		push	mode_r
+		push	gameBoards
+		call	fopen
+		add		esp, 8
+			;free up eax
+		mov		DWORD[ebp - 4], eax
+			;initialize the indexer
+		mov		DWORD [ebp - 8], 0
+		topReadLoop:
+		mov		ecx, DWORD [ebp - 8]
+		lea		edx, [boardArray + ecx]
+		cmp		eax, 0
+		je		endReadLoop
+				;read the line into boardArray
+			push	DWORD [ebp -4]
+			push	13
+			push	edx
+			call	fgets
+			add		esp, 12
+				;replace the new line with a null byte
+			mov		ecx, DWORD [ebp - 8]
+			mov		BYTE [boardArray + ecx + 11], 0
+		add		DWORD [ebp - 8], 12
+		jmp		topReadLoop
+		endReadLoop:
+			;close the file
+		push	DWORD [ebp - 4]
+		call	fclose
 		add		esp, 4
 	mov		esp, ebp
 	pop		ebp
