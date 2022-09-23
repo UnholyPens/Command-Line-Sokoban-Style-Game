@@ -1,10 +1,10 @@
 ; the size of the game screen in characters
 %define HEIGHT 14
-%define WIDTH 34
+%define WIDTH 20
 	; the player starting position.
 	; top left is considered (0,0)
-%define STARTX 2
-%define STARTY 1
+;%define STARTX 2
+;%define STARTY 1
 
 segment .data
 
@@ -16,6 +16,7 @@ segment .data
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
+	plateUnderGem		db	27,"[48;5;9m",0
 	wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
@@ -28,7 +29,7 @@ segment .data
 	gemColor			db	27,"[38;5;9m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor
+							activeBColor, gemColor, plateUnderGem
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -44,7 +45,8 @@ segment .data
 	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSRPA|LKlj \_rBb%$Gg^s",0
+	possChars			db	"pTSRPA|LKlj \_rBb%$Gg^s*-+",0
+	coordString			db	"%d %d",0
 
 segment .bss
 
@@ -68,6 +70,8 @@ segment .bss
 		;This array stores the names of all the game boards, and is dynamically
 		;filled in loadBoards
 	boardArray	resb	145
+	STARTX		resd	1
+	STARTY		resd	1
 
 segment .text
 
@@ -85,6 +89,7 @@ segment .text
 	extern	fread
 	extern	fgetc
 	extern	fgets
+	extern	fscanf
 	extern	fclose
 	extern 	sleep
 
@@ -121,8 +126,10 @@ main:
 			;objects with the rest of the game board
 		call	init_arrs
 			; set the player at the proper start position
-		mov		DWORD [xpos], STARTX
-		mov		DWORD [ypos], STARTY
+		mov		eax, DWORD [STARTX]
+		mov		DWORD [xpos], eax
+		mov		eax, DWORD [STARTY]
+		mov		DWORD [ypos], eax
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [plateDoors], 0
 		mov		DWORD [hasKey], 0
@@ -227,6 +234,8 @@ checkCharTest:
 		je		pButtDoor
 		cmp		BYTE [checkArr + ecx], 'G'
 		je		pGem
+		cmp		BYTE [checkArr + ecx], '*'
+		je		pGButtDoor
 		jmp		pDefault
 		pRock:
 			call	pushRock
@@ -292,6 +301,10 @@ checkCharTest:
 			notPlateGem:
 			mov		BYTE [board + eax], ' '
 			jmp		checkDone
+		pGButtDoor:
+			cmp		BYTE [board + eax], '-'
+			jne		pDefault
+				jmp		checkDone
 		pDefault:
 			mov		DWORD [xpos], esi
 			mov		DWORD [ypos], edi
@@ -346,17 +359,34 @@ pushRock:
 			je		bOn
 			cmp		BYTE [board + eax], 's'
 			je		bOff
+			cmp		BYTE [ebx], '-'
+			je		gBOn
+			cmp		BYTE [board + eax], '+'
+			je		gBOff
 			mov		BYTE [board + eax], ' '
 			jmp		rockDefault
-			
 			offPlate:
-				mov		DWORD [plateDoors], 0
 				mov		BYTE [board + eax], 'P'
+				cmp		BYTE [ebx], 'P'
+				jne		notOffOnPlate
+					mov		BYTE [ebx], 'p'
+					jmp		rockend
+				notOffOnPlate:
+				cmp		BYTE [ebx], '$'
+				jne		notOnButtDoor
+					mov		BYTE [ebx], 's'
+					jmp		rockend
+				notOnButtDoor:
 				jmp		rockDefault
 			onPlate:
 				;if the rock is pushed onto a plate, open the plate doors
 				mov		DWORD [plateDoors], 1
 				mov		BYTE [ebx], 'p'
+				cmp		BYTE [board + eax], 's'
+				jne		notButtRock
+					mov		BYTE [board + eax], '%'
+					jmp		rockend
+				notButtRock:
 				mov		BYTE [board + eax], ' '
 				jmp		rockend
 			lOn:
@@ -385,6 +415,18 @@ pushRock:
 				jmp		rockend	
 			bOff:
 				mov		BYTE [board + eax], '$'
+				jmp		rockDefault
+			gBOn:
+				mov		BYTE [ebx], '+'
+				cmp		BYTE [board + eax], '+'
+				jne		offGBDoor
+					mov		BYTE [board + eax], '-'
+					jmp		rockend
+				offGBDoor:
+				mov		BYTE [board + eax], ' '
+				jmp		rockend	
+			gBOff:
+				mov		BYTE [board + eax], '-'
 				jmp		rockDefault
 			rockDefault:
 			mov		BYTE [ebx], 'R'
@@ -467,6 +509,18 @@ init_board:
 		call	fopen
 		add		esp, 8
 		mov		DWORD [ebp - 4], eax
+
+		push	STARTY
+		push	STARTX
+		push	coordString
+		push	DWORD [ebp - 4]
+		call	fscanf
+		add		esp, 16
+
+		push	DWORD [ebp - 4]
+		call	fgetc
+		add		esp, 4
+
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
@@ -619,6 +673,8 @@ charRender:
 			je		rButton
 			cmp		BYTE [checkArr + ebx], '%'
 			je		rButtDoor
+			cmp		BYTE [checkArr + ebx], '*'
+			je		rGButtDoor
 			cmp		BYTE [checkArr + ebx], 'G'
 			je		rGem
 			cmp		BYTE [checkArr + ebx], 'g'
@@ -685,17 +741,6 @@ charRender:
 				mov		BYTE [board + eax], '|'
 				mov		bl, '#'
 				jmp		rDefault
-					;The following code has been commented due to the fact
-					;that it very well could come in handy in the future.
-			;	cmp		DWORD [plateDoors],1
-			;	jne		pNotOpen
-			;		mov		BYTE [board + eax], '\'
-			;		mov		bl, ' '
-			;		jmp		rDefault
-			;	pNotOpen:
-			;	mov		BYTE [board + eax], '|'
-			;	mov		bl, '#'
-			;	jmp		rDefault
 			rStairs:
 				mov		DWORD [colorCode], 6
 				jmp		rDefault
@@ -717,22 +762,51 @@ charRender:
 				jmp		testLoop
 				testPassed:
 				mov		BYTE [board + eax], '$'
-				mov		bl, ' '
+				mov		bl, '$'
 				jmp		rDefault
 				testFailed:
 				mov		BYTE [board + eax], '%'
+				mov		bl, '%'
+				jmp		rDefault
+			rGButtDoor:
+				mov		DWORD [colorCode], 8
+				mov		edx, WIDTH*HEIGHT
+				mov		edi, 0
+				gtestLoop:
+				cmp		edi, edx
+				je		gtestFailed
+					cmp		BYTE [board + edi], 'b'
+					jne		gcheckActive
+						jmp		gtestPassed
+					gcheckActive:
+				inc		edi
+				jmp		gtestLoop
+				gtestPassed:
+				mov		BYTE [board + eax], '-'
+				mov		bl, ' '
+				jmp		rDefault
+				gtestFailed:
+				mov		BYTE [board + eax], '*'
 				mov		bl, '#'
 				jmp		rDefault
 			rGem:
 				mov		DWORD [colorCode], 9
+				cmp		bl, 'g'
+				jne		notGemPlate
+					mov		DWORD [colorCode], 10
+					mov		bl, 'G'
+					jmp		rDefault
+				notGemPlate:
 				cmp		bl, '^'
-				jne		rDefault
+				jne		notGemDoor
 					mov		edx, WIDTH*HEIGHT
 					mov		edi, 0
 					gemLoop:
 					cmp		edi, edx
 					je		noGems
 						cmp		BYTE [board + edi], 'G'
+						je		gemsFound
+						cmp		BYTE [board + edi], 'g'
 						jne		checkGem
 							jmp		gemsFound
 						checkGem:
@@ -745,6 +819,8 @@ charRender:
 					gemsFound:
 					mov		bl, '#'
 					jmp		rDefault
+				notGemDoor:
+				jmp	rDefault
 			rDefault:
 				;use the num in colorCode to load the correct code into edi
 			mov		esi, DWORD[colorCode]
@@ -770,6 +846,20 @@ charRender:
 		inc		ecx
 			;save the last char that was moved into the buffer 
 			;to prevent redudant color codes from being printed
+		cmp		BYTE [board + eax], 'g'
+		jne		nPlateGem
+			mov		edi, resetColor
+			mov		esi, 0
+			resetColorLoop:
+			cmp		BYTE [edi + esi],0
+			je		endResetColorLoop
+				mov		dl, BYTE [edi + esi]
+				mov		BYTE [frameBuffer + ecx], dl
+				inc		ecx
+			inc		esi
+			jmp		resetColorLoop
+			endResetColorLoop:
+		nPlateGem:
 		mov		BYTE [lastChar], bl
 	mov		esp, ebp
 	pop		ebp
@@ -802,6 +892,9 @@ init_arrs:
 				;is it a rock on an open button door?
 			cmp		BYTE [possChars + esi], 's'
 			je		isRock
+				;is it a rock on an open gButton door?
+			cmp		BYTE[ possChars + esi], '+'
+			je		isRock	
 				;is it a P?
 			cmp		BYTE [possChars + esi], 'P'
 			je		isPlate
@@ -853,6 +946,12 @@ init_arrs:
 				;is it a gem door?
 			cmp		BYTE [possChars + esi], '^'
 			je		isGemDoor
+				;is it a gButton door?
+			cmp		BYTE [possChars + esi], '*'
+			je		isgButtDoor
+				;is it an open gButton door?
+			cmp		BYTE [possChars + esi], '-'
+			je		isgButtDoor
 			jmp		defaultOpt
 			iSpace:
 				mov		BYTE [checkArr + eax], ' '
@@ -890,6 +989,9 @@ init_arrs:
 			isGemDoor:
 				mov		BYTE [checkArr + eax], '^'
 				jmp		charPut
+			isgButtDoor:
+				mov		BYTE [checkArr + eax], '*'
+				jmp		charPut
 			defaultOpt:
 				mov		BYTE [checkArr + eax], 'x'
 			charPut:
@@ -912,6 +1014,8 @@ init_arrs:
 			cmp		BYTE [possChars + esi], 'j'
 			je		validChar
 			cmp		BYTE [possChars + esi], '$'
+			je		validChar
+			cmp		BYTE [possChars + esi], '-'
 			je		validChar
 			jmp		blocked
 			validChar:
