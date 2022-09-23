@@ -1,7 +1,8 @@
-TTTBTTTTTbTTTTTTTT                
-T          T     T                
-T    b B   T     T                
-T          %  S  T                
-T    B b   T     T                
-T          T     T                
-TTTbTTTTTBTTTTTTTT                
+4 3
+TTTTBTTTTTbTTTTTTTTT
+TT          T     TT
+TT    b B   T     TT
+TT          %  S  TT
+TT    B b   T     TT
+TT          T     TT
+TTTTbTTTTTBTTTTTTTTT

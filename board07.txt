@@ -1,0 +1,8 @@
+4 3
+TTTTTTTTTTTTTTTTTTTT
+TT     T    T     TT
+TT     T    T     TT
+TT b   % R  *  S  TT
+TT     T    T     TT
+TT     T    T     TT
+TTTTTTTTTTTTTTTTTTTT

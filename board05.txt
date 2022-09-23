@@ -1,7 +1,8 @@
-TTTTTTTTTTTTTTTTTT                
-Tb  GTP T  T     T                
-T    T  TR T     T                
-T    %  ^  |  S  T                
-T    T  TR T     T                
-TP   T GT  T     T                
-TTTTTTTTTTTTTTTTTT                
+4 3
+TTTTTTTTTTTTTTTTTTTT
+TTb  GTP T  T     TT
+TT    T  TR T     TT
+TT    %  ^  |  S  TT
+TT    T  TR T     TT
+TTP   T GT  T     TT
+TTTTTTTTTTTTTTTTTTTT
