@@ -505,8 +505,6 @@ render:
 			; two ints, two for loop counters
 			; ebp-4, ebp-8
 		sub		esp, 8
-			;initialize frame buffer index
-		mov		ecx, 0
 			; clear the screen
 		push	clear_screen_code
 		call	printf
@@ -524,6 +522,8 @@ render:
 		push	key_str
 		call	printf
 		add		esp, 8
+			;initialize frame buffer index
+		mov		ecx, 0
 			; outside loop by height
 			; i.e. for(c=0; c<height; c++)
 		mov		DWORD [ebp - 4], 0
