@@ -1,5 +1,5 @@
 ; the size of the game screen in characters
-%define HEIGHT 14
+%define HEIGHT 15
 %define WIDTH 20
 
 segment .data
@@ -590,6 +590,8 @@ render:
 						;then add the player character to the buffer
 					mov		BYTE [frameBuffer + ecx], 'O'
 					inc		ecx
+
+					mov		BYTE [lastChar], 'O'
 					jmp		print_end
 				print_board:
 					; otherwise print whatever's in the buffer
@@ -853,96 +855,101 @@ init_arrs:
 				;otherwise, make checkArr[pos] == 'X'
 			mov		al, BYTE [possChars + esi]
 				;is it a space?
-			cmp		BYTE [possChars + esi], ' '
+			cmp		al, ' '
 			je		iSpace
-				;is it a B?
-			cmp		BYTE [possChars + esi], 'R'
+				;is it a rock?
+			cmp		al, 'R'
 			je		isRock
 				;is it a rock on a plate?
-			cmp		BYTE [possChars + esi], 'p'
+			cmp		al, 'p'
 			je		isRock
 				;is it a rock on an open plate door?
-			cmp		BYTE [possChars + esi], '@'
+			cmp		al, '@'
 			je		isRock
 				;is it a rock on an open lever door?
-			cmp		BYTE [possChars + esi], 'r'
+			cmp		al, 'r'
 			je		isRock
 				;is it a rock on an open button door?
-			cmp		BYTE [possChars + esi], 's'
+			cmp		al, 's'
 			je		isRock
 				;is it a rock on an open gButton door?
-			cmp		BYTE[ possChars + esi], '+'
+			cmp		al, '+'
 			je		isRock	
-				;is it a P?
-			cmp		BYTE [possChars + esi], 'P'
+				;is it a plate?
+			cmp		al, 'P'
 			je		isPlate
 				;is it a closed plate door?
-			cmp		BYTE [possChars + esi], '|'
+			cmp		al, '|'
 			je		isPlateDoor
 				;is it an open plate door?
-			cmp		BYTE [possChars + esi], '\'
+			cmp		al, '\'
 			je		isPlateDoor
 				;is it a lever 1?
-			cmp		BYTE [possChars + esi], 'L'
+			cmp		al, 'L'
 			je		isLever
 				;is it a lever 2?
-			cmp		BYTE [possChars + esi], 'l'
+			cmp		al, 'l'
 			je		isLever
 				;is it stairs?
-			cmp		BYTE [possChars + esi], 'S'
+			cmp		al, 'S'
 			je		isStairs
 				;is it a key?
-			cmp		BYTE [possChars + esi], 'K'
+			cmp		al, 'K'
 			je		isKey
 				;is it a key door?
-			cmp		BYTE [possChars + esi], 'A'
+			cmp		al, 'A'
 			je		isKey
 				;is it a closed lever door?
-			cmp		BYTE [possChars + esi], '_'
+			cmp		al, '_'
 			je		isLDoor
 				;is it an open lever door?
-			cmp		BYTE [possChars + esi], 'j'
+			cmp		al, 'j'
 			je		isLDoor
 				;is it a button?
-			cmp		BYTE [possChars + esi], 'B'
+			cmp		al, 'B'
 			je		isButton
 				;is it an active button?
-			cmp		BYTE [possChars + esi], 'b'
+			cmp		al, 'b'
 			je		isButton
 				;is it a closed button door?
-			cmp		BYTE [possChars + esi], '%'
+			cmp		al, '%'
 			je		isButtDoor
 				;is it an open button door?
-			cmp		BYTE [possChars + esi], '$'
+			cmp		al, '$'
 			je		isButtDoor
 				;is it a gem?
-			cmp		BYTE [possChars + esi], 'G'
+			cmp		al, 'G'
 			je		isGem
 				;is it a gem on a plate?
-			cmp		BYTE [possChars + esi], 'g'
+			cmp		al, 'g'
 			je		isGem
 				;is it a gem door?
-			cmp		BYTE [possChars + esi], '^'
+			cmp		al, '^'
 			je		isGemDoor
 				;is it a gButton door?
-			cmp		BYTE [possChars + esi], '*'
+			cmp		al, '*'
 			je		isgButtDoor
 				;is it an open gButton door?
-			cmp		BYTE [possChars + esi], '-'
+			cmp		al, '-'
 			je		isgButtDoor
 			jmp		defaultOpt
 			iSpace:
 				mov		BYTE [checkArr + eax], ' '
+				mov		BYTE [rockArr + eax], 'x'
 				jmp		charPut
 			isRock:
 				mov		BYTE [checkArr + eax], 'R'
 				jmp		charPut
 			isPlate:
 				mov		BYTE [checkArr + eax], 'P'
+				mov		BYTE [rockArr + eax], 'x'
 				jmp		charPut
 			isPlateDoor:
 				mov		BYTE [checkArr + eax], '|'
-				jmp		charPut
+				cmp		al, '\'
+				jne		charPut
+					mov		BYTE [rockArr + eax], 'x'
+					jmp		charPut
 			isLever:
 				mov		BYTE [checkArr + eax], 'L'
 				jmp		charPut
@@ -954,13 +961,19 @@ init_arrs:
 				jmp		charPut
 			isLDoor:
 				mov		BYTE [checkArr + eax], '_'
-				jmp		charPut
+				cmp		al, 'j'
+				jne		charPut
+					mov		BYTE [rockArr + eax], 'x'
+					jmp		charPut
 			isButton:
 				mov		BYTE [checkArr + eax], 'B'
 				jmp		charPut
 			isButtDoor:
 				mov		BYTE [checkArr + eax], '%'
-				jmp		charPut
+				cmp		al, '$'
+				jne		charPut
+					mov		BYTE [rockArr + eax], 'x'
+					jmp		charPut
 			isGem:
 				mov		BYTE [checkArr + eax], 'G'
 				jmp		charPut
@@ -969,42 +982,16 @@ init_arrs:
 				jmp		charPut
 			isgButtDoor:
 				mov		BYTE [checkArr + eax], '*'
-				jmp		charPut
+				cmp		al, '-'
+				jne		charPut
+					mov		BYTE [rockArr + eax], 'x'
+					jmp		charPut
 			defaultOpt:
 				mov		BYTE [checkArr + eax], 'x'
 			charPut:
 		inc		esi
 		jmp		arrLoop
 		endArrLoop:
-
-		mov		esi, 0
-		mov		eax, 0
-		arrLoop2:
-			;loop through the board characters, making note of every one we come across
-		cmp		BYTE [possChars + esi], 0
-		je		endArrLoop2
-				;is it a valid place for the rock to move? 
-				;if it is, put an X at the appropriate location in rockArr
-			cmp		BYTE [possChars + esi], ' '
-			je		validChar
-			cmp		BYTE [possChars + esi], 'P'
-			je		validChar
-			cmp		BYTE [possChars + esi], '\'
-			je		validChar
-			cmp		BYTE [possChars + esi], 'j'
-			je		validChar
-			cmp		BYTE [possChars + esi], '$'
-			je		validChar
-			cmp		BYTE [possChars + esi], '-'
-			je		validChar
-			jmp		blocked
-			validChar:
-				mov		al, BYTE [possChars + esi]
-				mov		BYTE [rockArr + eax], 'x'
-			blocked:
-		inc		esi
-		jmp		arrLoop2
-		endArrLoop2:
 	mov		esp, ebp
 	pop		ebp
 	ret
