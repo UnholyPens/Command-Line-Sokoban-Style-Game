@@ -4,5 +4,5 @@ T   TGT    TBT    TT
 T RR*PP  R T T    TT
 T   T      T | S  TT
 T  R%PP    ^ T    TT
-T   B B   GT T    TT
+T   T T   GT T    TT
 TTTTTTTTTTTTTTTTTTTT
