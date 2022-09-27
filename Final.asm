@@ -48,6 +48,8 @@ segment .bss
 
 		; this array stores the current rendered gameboard (HxW)
 	board		resb	(HEIGHT * WIDTH)
+		;this array is used to store door characters when they are opened
+	doorLayer	resb	(HEIGHT * WIDTH)
 		; these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
@@ -252,7 +254,7 @@ checkCharTest:
 			mov		DWORD [leverDoors], 0
 			jmp		pDefault
 		pLDoor:
-			cmp		DWORD [leverDoors], 0
+			cmp		BYTE [board + eax], '_'
 			je		pDefault
 				jmp		checkDone
 		pStairs:
@@ -450,7 +452,7 @@ loadBoards:
 		cmp		eax, 0
 		je		endReadLoop
 				;read the line into boardArray
-			push	DWORD [ebp -4]
+			push	DWORD [ebp - 4]
 			push	13
 			push	edx
 			call	fgets
@@ -517,6 +519,21 @@ init_board:
 		inc		DWORD [ebp - 8]
 		jmp		read_loop
 		read_loop_end:
+
+		mov		ebx, 0
+		mov		edx, WIDTH*HEIGHT
+		mov		edi, 0
+		doorLoop:
+		cmp		edi, edx
+		je		endDoorCheck
+			mov		bl, BYTE [board + edi]
+			cmp		bl, '%'
+			jne		notButtDoor
+				mov		BYTE [doorLayer + edi], bl
+			notButtDoor:
+		inc		edi
+		jmp		doorLoop
+		endDoorCheck:
 			; close the open file handle
 		push	DWORD [ebp - 4]
 		call	fclose
@@ -733,11 +750,15 @@ charRender:
 				inc		edi
 				jmp		testLoop
 				testPassed:
-				mov		BYTE [board + eax], '$'
+				mov		bl, BYTE [board + eax]
+				mov		BYTE [doorLayer + eax], bl
+				mov		BYTE [board + eax], ' '
 				mov		bl, ' '
 				jmp		rDefault
 				testFailed:
-				mov		BYTE [board + eax], '%'
+				mov		bl, BYTE [doorLayer + eax]
+				mov		BYTE [board + eax], bl
+				mov		BYTE [doorLayer + eax], ' '
 				mov		bl, '#'
 				jmp		rDefault
 			rGButtDoor:
