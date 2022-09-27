@@ -1,10 +1,6 @@
 ; the size of the game screen in characters
 %define HEIGHT 14
 %define WIDTH 20
-	; the player starting position.
-	; top left is considered (0,0)
-;%define STARTX 2
-;%define STARTY 1
 
 segment .data
 
@@ -45,7 +41,7 @@ segment .data
 	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSRPA|LKlj \_rBb%$Gg^s*-+",0
+	possChars			db	"pTSRPA|LKlj \_rBb%$Gg^s*-+@",0
 	coordString			db	"%d %d",0
 
 segment .bss
@@ -249,8 +245,8 @@ checkCharTest:
 			mov		DWORD [leverDoors], 0
 			jmp		pDefault
 		pPDoors:
-			cmp		DWORD [plateDoors], 0
-			je		pDefault
+			cmp		BYTE [board + eax], '\'
+			jne		pDefault
 				jmp		checkDone
 		pLDoor:
 			cmp		DWORD [leverDoors], 0
@@ -346,91 +342,72 @@ pushRock:
 		mov		cl, BYTE [ebx]
 		cmp		BYTE [rockArr + ecx], 'x'
 		jne		pathBlocked
-				;if the rock is to be pushed off of a plate, close the plate doors
+				;compare the current rockChar to the possible rockChars
+			cmp		BYTE [board + eax], 'R'
+			je		onSpace
 			cmp		BYTE [board + eax], 'p'
-			je		offPlate
-			cmp		BYTE [ebx], 'P'
 			je		onPlate
-			cmp		BYTE [ebx], 'j'
-			je		lOn
+			cmp		BYTE [board + eax], '@'
+			je		onPlateDoor
 			cmp		BYTE [board + eax], 'r'
-			je		lOff
-			cmp		BYTE [ebx], '$'
-			je		bOn
+			je		onLeverDoor
 			cmp		BYTE [board + eax], 's'
-			je		bOff
-			cmp		BYTE [ebx], '-'
-			je		gBOn
+			je		onButtonDoor
 			cmp		BYTE [board + eax], '+'
-			je		gBOff
-			mov		BYTE [board + eax], ' '
-			jmp		rockDefault
-			offPlate:
-				mov		BYTE [board + eax], 'P'
-				cmp		BYTE [ebx], 'P'
-				jne		notOffOnPlate
-					mov		BYTE [ebx], 'p'
-					jmp		rockend
-				notOffOnPlate:
-				cmp		BYTE [ebx], '$'
-				jne		notOnButtDoor
-					mov		BYTE [ebx], 's'
-					jmp		rockend
-				notOnButtDoor:
-				jmp		rockDefault
+			je		onGreyDoor
+			jmp		pathBlocked
+				;then change the currentChar accordingly
+			onSpace:
+				mov		BYTE [board + eax], ' '
+				jmp		notOn
 			onPlate:
-				;if the rock is pushed onto a plate, open the plate doors
-				mov		DWORD [plateDoors], 1
-				mov		BYTE [ebx], 'p'
-				cmp		BYTE [board + eax], 's'
-				jne		notButtRock
-					mov		BYTE [board + eax], '%'
-					jmp		rockend
-				notButtRock:
-				mov		BYTE [board + eax], ' '
-				jmp		rockend
-			lOn:
-				;if the rock is pushed into an open lever door,
-				;move the rock through with the same method used 
-				;to move it onto a plate
-				mov		BYTE [ebx], 'r'
-				cmp		BYTE [board + eax], 'r'
-				jne		testing1
-					mov		BYTE [board + eax], 'j'
-					jmp		rockend
-				testing1:
-				mov		BYTE [board + eax], ' '
-				jmp		rockend
-			lOff:
+				mov		BYTE [board + eax], 'P'
+				jmp		notOn
+			onPlateDoor:
+				mov		BYTE [board + eax], '\'
+				jmp		notOn
+			onLeverDoor:
 				mov		BYTE [board + eax], 'j'
-				jmp		rockDefault
-			bOn:
-				mov		BYTE [ebx], 's'
-				cmp		BYTE [board + eax], 's'
-				jne		offBDoor
-					mov		BYTE [board + eax], '$'
-					jmp		rockend
-				offBDoor:
-				mov		BYTE [board + eax], ' '
-				jmp		rockend	
-			bOff:
+				jmp		notOn
+			onButtonDoor:
 				mov		BYTE [board + eax], '$'
-				jmp		rockDefault
-			gBOn:
-				mov		BYTE [ebx], '+'
-				cmp		BYTE [board + eax], '+'
-				jne		offGBDoor
-					mov		BYTE [board + eax], '-'
-					jmp		rockend
-				offGBDoor:
-				mov		BYTE [board + eax], ' '
-				jmp		rockend	
-			gBOff:
+				jmp		notOn
+			onGreyDoor:
 				mov		BYTE [board + eax], '-'
-				jmp		rockDefault
-			rockDefault:
-			mov		BYTE [ebx], 'R'
-			jmp		rockend
+			notOn:
+				;compare the nextChar to the possible nextChars
+			cmp		BYTE [ebx], ' '
+			je		spaceNext
+			cmp		BYTE [ebx], 'P'
+			je		plateNext
+			cmp		BYTE [ebx], '\'
+			je		plateDoorNext
+			cmp		BYTE [ebx], 'j'
+			je		leverDoorNext
+			cmp		BYTE [ebx], '$'
+			je		buttonDoorNext
+			cmp		BYTE [ebx], '-'
+			je		greyDoorNext
+			jmp		pathBlocked
+				;then change the nextChar accordingly
+			spaceNext:
+				mov		BYTE [ebx], 'R'
+				jmp		rockend
+			plateNext:
+				mov		BYTE [ebx], 'p'
+				jmp		rockend
+			plateDoorNext:
+				mov		BYTE [ebx], '@'
+				jmp		rockend
+			leverDoorNext:
+				mov		BYTE [ebx], 'r'
+				jmp		rockend
+			buttonDoorNext:
+				mov		BYTE [ebx], 's'
+				jmp		rockend
+			greyDoorNext:
+				mov		BYTE [ebx], '+'
+				jmp		rockend
 		pathBlocked:
 		mov		DWORD [xpos], esi
 		mov		DWORD [ypos], edi
@@ -677,8 +654,6 @@ charRender:
 			je		rGButtDoor
 			cmp		BYTE [checkArr + ebx], 'G'
 			je		rGem
-			cmp		BYTE [checkArr + ebx], 'g'
-			je		rGem
 			cmp		BYTE [checkArr + ebx], '^'
 			je		rGem
 			jmp		rDefault
@@ -762,11 +737,11 @@ charRender:
 				jmp		testLoop
 				testPassed:
 				mov		BYTE [board + eax], '$'
-				mov		bl, '$'
+				mov		bl, ' '
 				jmp		rDefault
 				testFailed:
 				mov		BYTE [board + eax], '%'
-				mov		bl, '%'
+				mov		bl, '#'
 				jmp		rDefault
 			rGButtDoor:
 				mov		DWORD [colorCode], 8
@@ -885,6 +860,9 @@ init_arrs:
 			je		isRock
 				;is it a rock on a plate?
 			cmp		BYTE [possChars + esi], 'p'
+			je		isRock
+				;is it a rock on an open plate door?
+			cmp		BYTE [possChars + esi], '@'
 			je		isRock
 				;is it a rock on an open lever door?
 			cmp		BYTE [possChars + esi], 'r'
@@ -1010,6 +988,8 @@ init_arrs:
 			cmp		BYTE [possChars + esi], ' '
 			je		validChar
 			cmp		BYTE [possChars + esi], 'P'
+			je		validChar
+			cmp		BYTE [possChars + esi], '\'
 			je		validChar
 			cmp		BYTE [possChars + esi], 'j'
 			je		validChar
