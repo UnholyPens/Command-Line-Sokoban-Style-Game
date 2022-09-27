@@ -54,7 +54,6 @@ segment .bss
 		;These variables store various data for rendering
 	colorCode	resd	1
 	leverDoors	resd	1
-	plateDoors	resd	1
 	hasKey		resd	1
 	gameEnd		resd	1
 	currentBoard	resd	1
@@ -127,7 +126,6 @@ main:
 		mov		eax, DWORD [STARTY]
 		mov		DWORD [ypos], eax
 		mov		DWORD [leverDoors], 0
-		mov		DWORD [plateDoors], 0
 		mov		DWORD [hasKey], 0
 		mov		DWORD [gameEnd], 0
 			; the game happens in this loop
@@ -217,7 +215,7 @@ checkCharTest:
 		cmp		BYTE [checkArr + ecx], 'L'
 		je		pLever
 		cmp		BYTE [checkArr + ecx], '|'
-		je		pPDoors
+		je		pDoor
 		cmp		BYTE [checkArr + ecx], '_'
 		je		pLDoor
 		cmp		BYTE [checkArr + ecx], 'S'
@@ -227,12 +225,21 @@ checkCharTest:
 		cmp		BYTE [checkArr + ecx], 'B'
 		je		pButton
 		cmp		BYTE [checkArr + ecx], '%'
-		je		pButtDoor
+		je		pDoor
 		cmp		BYTE [checkArr + ecx], 'G'
 		je		pGem
 		cmp		BYTE [checkArr + ecx], '*'
-		je		pGButtDoor
+		je		pDoor
 		jmp		pDefault
+
+		pDoor:
+			cmp		BYTE [board + eax], '\'
+			je		checkDone
+			cmp		BYTE [board + eax], '$'
+			je		checkDone
+			cmp		BYTE [board + eax], '-'
+			je		checkDone
+			jmp		pDefault
 		pRock:
 			call	pushRock
 			jmp		checkDone
@@ -244,10 +251,6 @@ checkCharTest:
 			isActive:
 			mov		DWORD [leverDoors], 0
 			jmp		pDefault
-		pPDoors:
-			cmp		BYTE [board + eax], '\'
-			jne		pDefault
-				jmp		checkDone
 		pLDoor:
 			cmp		DWORD [leverDoors], 0
 			je		pDefault
@@ -285,10 +288,6 @@ checkCharTest:
 			notButt:
 			mov		BYTE [board + eax], 'B'
 			jmp		pDefault
-		pButtDoor:
-			cmp		BYTE [board + eax], '$'
-			jne		pDefault
-				jmp		checkDone
 		pGem:
 			cmp		BYTE [board + eax], 'g'
 			jne		notPlateGem
@@ -297,10 +296,6 @@ checkCharTest:
 			notPlateGem:
 			mov		BYTE [board + eax], ' '
 			jmp		checkDone
-		pGButtDoor:
-			cmp		BYTE [board + eax], '-'
-			jne		pDefault
-				jmp		checkDone
 		pDefault:
 			mov		DWORD [xpos], esi
 			mov		DWORD [ypos], edi
@@ -590,7 +585,7 @@ render:
 						;then add the player character to the buffer
 					mov		BYTE [frameBuffer + ecx], 'O'
 					inc		ecx
-
+						;update lastChar
 					mov		BYTE [lastChar], 'O'
 					jmp		print_end
 				print_board:
