@@ -1,5 +1,5 @@
 ; the size of the game screen in characters
-%define HEIGHT 15
+%define HEIGHT 16
 %define WIDTH 20
 
 segment .data
@@ -35,7 +35,10 @@ segment .data
 		; ANSI escape sequence to clear/refresh the screen
 	clear_screen_code	db	27,"[2J",27,"[H",0
 		; things the program will print
-	help_str			db 13,10,"Controls: w=UP / a=LEFT / s=DOWN / d=RIGHT / h=HINT / x=EXIT",13,10,10,0
+	help_str			db 13,10,"Controls: w=UP / a=LEFT / s=DOWN / d=RIGHT / h=HINT / x=EXIT",13,10,0
+	hintCarriage		db 13,0
+	hintBlank			db 10,10,10,10,10,0
+	hintNL				db 10,0
 		;displays num keys
 	key_str				db	"Num keys: %d",10,13,0
 	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
@@ -56,6 +59,7 @@ segment .bss
 		;These variables store various data for rendering
 	colorCode	resd	1
 	leverDoors	resd	1
+	displayHint	resd	1
 	hasKey		resd	1
 	gameEnd		resd	1
 	currentBoard	resd	1
@@ -64,6 +68,10 @@ segment .bss
 	lastChar	resb	1
 	checkArr	resb	256
 	rockArr		resb	256
+		;This array stores the hint string read in from the board file.
+	hintStr		resb	128
+	hintStr2	resb	128
+	hintStr3	resb	128
 		;This array stores the names of all the game boards, and is dynamically
 		;filled in loadBoards
 	boardArray	resb	145
@@ -127,6 +135,7 @@ main:
 		mov		DWORD [xpos], eax
 		mov		eax, DWORD [STARTY]
 		mov		DWORD [ypos], eax
+		mov		DWORD [displayHint], 1
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [hasKey], 0
 		mov		DWORD [gameEnd], 0
@@ -144,6 +153,7 @@ main:
 			je		game_loop_end	
 				; draw the game board
 			call	render
+			mov		DWORD [displayHint], 0
 				; get an action from the user
 			call	getchar
 				; store the current position
@@ -167,6 +177,8 @@ main:
 			je		moveDown
 			cmp		eax, 'd'	
 			je		moveRight
+			cmp		eax, 'h'
+			je		showHint
 			jmp		inputFound
 			moveUp:
 				dec		DWORD [ypos]
@@ -180,6 +192,8 @@ main:
 			moveRight:
 				inc		DWORD [xpos]
 				jmp		inputFound
+			showHint:
+				mov		DWORD [displayHint], 1
 			inputFound:
 				;save user input
 			mov		ebx, eax
@@ -423,6 +437,23 @@ init_board:
 		call	fgetc
 		add		esp, 4
 
+		testing:
+		push	DWORD [ebp - 4]
+		push	128
+		push	hintStr
+		call	fgets
+		add		esp, 12
+		push	DWORD [ebp - 4]
+		push	128
+		push	hintStr2
+		call	fgets
+		add		esp, 12
+		push	DWORD [ebp - 4]
+		push	128
+		push	hintStr3
+		call	fgets
+		add		esp, 12
+		
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
@@ -494,9 +525,40 @@ render:
 		call	printf
 		add		esp, 4
 			; print the help information
-		push	help_str
-		call	printf
-		add		esp, 4
+		cmp		DWORD [displayHint], 0
+		je		noHint
+			push	hintNL
+			call	printf
+			add		esp, 4
+			push	hintStr
+			call	printf
+			add		esp, 4
+			push	hintCarriage
+			call	printf
+			add		esp, 4
+
+			push	hintStr2
+			call	printf
+			add		esp, 4
+			push	hintCarriage
+			call	printf
+			add		esp, 4
+
+			push	hintStr3
+			call	printf
+			add		esp, 4
+			push	hintCarriage
+			call	printf
+			add		esp, 4
+			push	hintNL
+			call	printf
+			add		esp, 4
+			jmp		hintShown
+		noHint:
+			push	hintBlank
+			call	printf
+			add		esp, 4
+		hintShown:
 			;Print the key string
 		push	DWORD[hasKey]
 		push	key_str
@@ -865,6 +927,9 @@ init_arrs:
 			je		iSpace
 				;is it a rock?
 			cmp		al, 'R'
+			je		isRock
+				;is it a rock on a plate?
+			cmp		al, 'p'
 			je		isRock
 				;is it a plate?
 			cmp		al, 'P'

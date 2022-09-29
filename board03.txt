@@ -1,4 +1,7 @@
 4 3
+The teal door will open when all buttons are turned on.
+If you need to see any introductory notes again, press 'h'. 
+
 TTTTBTTTTTbTTTTTTTTT
 TT          T     TT
 TT    b B   T     TT
