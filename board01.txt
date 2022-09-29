@@ -1,6 +1,6 @@
 4 3
-%TTTTTTTTTTTTTTTTTTT
-TT    b  TTTT     TT
+TTTTTTTTTTTTTTTTTTTT
+TT      TTTT     TT
 TT       R R      TT
 TT       R R   S  TT
 TT       R R      TT
