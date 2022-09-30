@@ -1,6 +1,6 @@
-4 3
-The grey door will open when all plates have been depressed.
-Plates cannot be depressed by you, but most other things can.
+4 7
+The plate door will open when all plates have been depressed.
+Plates cannot be depressed by you, but most other things can do the trick.
 
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT

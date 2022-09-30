@@ -499,6 +499,10 @@ init_board:
 			jne		notBDoor
 				mov		BYTE [doorLayer + edi], ' '
 			notBDoor:
+			cmp		bl, '*'
+			jne		notgBDoor
+				mov		BYTE [doorLayer + edi], ' '
+			notgBDoor:
 		inc		edi
 		jmp		doorLoop
 		endDoorCheck:
