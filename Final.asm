@@ -6,13 +6,13 @@ segment .data
 
 		;this file contains a list of all the game boards,
 		;and is used to dynamically fill boardArray
-	gameBoards			db "boards.txt",0
+	gameBoards			db "boards/boards.txt",0
 		;these are the color codes used for various symbols
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
-	plateUnderGem		db	27,"[48;5;9m",0
+	plateUnderGem		db	27,"[1;48;5;249;38;5;9m",0
 	wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
@@ -69,12 +69,10 @@ segment .bss
 	checkArr	resb	256
 	rockArr		resb	256
 		;This array stores the hint string read in from the board file.
-	hintStr		resb	128
-	hintStr2	resb	128
-	hintStr3	resb	128
+	hintStr		resb	384
 		;This array stores the names of all the game boards, and is dynamically
 		;filled in loadBoards
-	boardArray	resb	145
+	boardArray	resb	200
 	STARTX		resd	1
 	STARTY		resd	1
 
@@ -111,7 +109,7 @@ main:
 
 		GOHERE:
 			;if the previous board was the last one, close the game
-		mov		eax, 12
+		mov		eax, 19
 		mul		DWORD [currentBoard]
 		cmp		BYTE [boardArray + eax], 0
 		jne		validBoard
@@ -119,10 +117,9 @@ main:
 			jmp		game_loop
 		validBoard:
 			;display the initial board, or update it to the next one
-		mov		eax, 12
+		mov		eax, 19
 		mul		DWORD [currentBoard]
 		lea		ecx, [boardArray + eax]
-	
 		push	ecx
 		call	init_board
 		add		esp, 4
@@ -155,6 +152,7 @@ main:
 			call	render
 			mov		DWORD [displayHint], 0
 				; get an action from the user
+			testing2:
 			call	getchar
 				; store the current position
 				; we will test if the new position is legal
@@ -179,6 +177,8 @@ main:
 			je		moveRight
 			cmp		eax, 'h'
 			je		showHint
+			cmp		eax, 127
+			je		resetBoard
 			jmp		inputFound
 			moveUp:
 				dec		DWORD [ypos]
@@ -194,6 +194,9 @@ main:
 				jmp		inputFound
 			showHint:
 				mov		DWORD [displayHint], 1
+				jmp		inputFound
+			resetBoard:
+				jmp		validBoard
 			inputFound:
 				;save user input
 			mov		ebx, eax
@@ -239,7 +242,6 @@ checkCharTest:
 		cmp		BYTE [checkArr + ecx], 'G'
 		je		pGem
 		jmp		pDefault
-
 		pRock:
 			call	pushRock
 			jmp		checkDone
@@ -395,14 +397,14 @@ loadBoards:
 		je		endReadLoop
 				;read the line into boardArray
 			push	DWORD [ebp - 4]
-			push	13
+			push	20
 			push	edx
 			call	fgets
 			add		esp, 12
 				;replace the new line with a null byte
 			mov		ecx, DWORD [ebp - 8]
-			mov		BYTE [boardArray + ecx + 11], 0
-		add		DWORD [ebp - 8], 12
+			mov		BYTE [boardArray + ecx + 18], 0
+		add		DWORD [ebp - 8], 19
 		jmp		topReadLoop
 		endReadLoop:
 			;close the file
@@ -425,35 +427,31 @@ init_board:
 		call	fopen
 		add		esp, 8
 		mov		DWORD [ebp - 4], eax
-
+			;load the player's starting position
 		push	STARTY
 		push	STARTX
 		push	coordString
 		push	DWORD [ebp - 4]
 		call	fscanf
 		add		esp, 16
-
+			;eat the new line
 		push	DWORD [ebp - 4]
 		call	fgetc
 		add		esp, 4
-
-		testing:
-		push	DWORD [ebp - 4]
-		push	128
-		push	hintStr
-		call	fgets
-		add		esp, 12
-		push	DWORD [ebp - 4]
-		push	128
-		push	hintStr2
-		call	fgets
-		add		esp, 12
-		push	DWORD [ebp - 4]
-		push	128
-		push	hintStr3
-		call	fgets
-		add		esp, 12
-		
+			;load in the hint string
+		mov		ebx, 0
+		topInitLoop:
+		cmp		ebx, 384
+		je		endInitLoop
+			lea		eax, [hintStr + ebx]
+			push	DWORD [ebp - 4]
+			push	128
+			push	eax
+			call	fgets
+			add		esp, 12
+		add		ebx, 128
+		jmp		topInitLoop
+		endInitLoop:
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
@@ -478,7 +476,6 @@ init_board:
 		inc		DWORD [ebp - 8]
 		jmp		read_loop
 		read_loop_end:
-
 			;populate the door layer
 		mov		ebx, 0
 		mov		edx, WIDTH*HEIGHT
@@ -488,21 +485,28 @@ init_board:
 		je		endDoorCheck
 			mov		bl, BYTE [board + edi]
 			cmp		bl, '|'
-			jne		notPDoor
-				mov		BYTE [doorLayer + edi], ' '
-			notPDoor:
+			je		yesPDoor
 			cmp		bl, '_'
-			jne		notLDoor
-				mov		BYTE [doorLayer + edi], ' '
-			notLDoor:
+			je		yesLDoor
 			cmp		bl, '%'
-			jne		notBDoor
-				mov		BYTE [doorLayer + edi], ' '
-			notBDoor:
+			je		yesBDoor
 			cmp		bl, '*'
-			jne		notgBDoor
+			je		yesgBDoor
+			mov		BYTE [doorLayer + edi], 0
+			jmp		noDoor
+			yesPDoor:
 				mov		BYTE [doorLayer + edi], ' '
-			notgBDoor:
+				jmp		noDoor
+			yesLDoor:
+				mov		BYTE [doorLayer + edi], ' '
+				jmp		noDoor
+			yesBDoor:
+				mov		BYTE [doorLayer + edi], ' '
+				jmp		noDoor
+			yesgBDoor:
+				mov		BYTE [doorLayer + edi], ' '
+				jmp		noDoor
+			noDoor:
 		inc		edi
 		jmp		doorLoop
 		endDoorCheck:
@@ -534,26 +538,22 @@ render:
 			push	hintNL
 			call	printf
 			add		esp, 4
-			push	hintStr
-			call	printf
-			add		esp, 4
-			push	hintCarriage
-			call	printf
-			add		esp, 4
+			
+			mov		ebx, 0
+			hintLoopTop:
+			cmp		ebx, 384
+			je		hintLoopDone
+				lea		ecx, [hintStr + ebx]
+				push	ecx
+				call	printf
+				add		esp, 4
+				push	hintCarriage
+				call	printf
+				add		esp, 4
+			add		ebx, 128
+			jmp		hintLoopTop
+			hintLoopDone:
 
-			push	hintStr2
-			call	printf
-			add		esp, 4
-			push	hintCarriage
-			call	printf
-			add		esp, 4
-
-			push	hintStr3
-			call	printf
-			add		esp, 4
-			push	hintCarriage
-			call	printf
-			add		esp, 4
 			push	hintNL
 			call	printf
 			add		esp, 4
