@@ -2,19 +2,20 @@
 |                                                |
 |                                                |
 |                                                |
+|                    Assembly                    |
+|                   Adventures                   |
+|                                                |
+|                                                |
+|                                                |
+|                                                |
+|                                                |
+|             -start          -close             |
 |                                                |
 |                                                |
 |                                                |
 |                                                |
 |                                                |
 |                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
-|                                                |
+|           Use W, A, S, D, and Space            |
+|         to control the menu selection.         |
 --------------------------------------------------

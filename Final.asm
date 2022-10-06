@@ -7,6 +7,7 @@ segment .data
 		;this file contains a list of all the game boards,
 		;and is used to dynamically fill boardArray
 	gameBoards			db "boards/boards.txt",0
+	menuBoard			db "menu.txt",0
 		;these are the color codes used for various symbols
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
@@ -33,7 +34,7 @@ segment .data
 	raw_mode_on_cmd		db "stty raw -echo",0
 	raw_mode_off_cmd	db "stty -raw echo",0
 		; ANSI escape sequence to clear/refresh the screen
-	clear_screen_code	db	27,"[2J",27,"[H",0
+	clear_screen_code	db	27,"[2J",27,"[H",27,"[0m",0
 		; things the program will print
 	help_str			db 13,10,"Controls: w=UP / a=LEFT / s=DOWN / d=RIGHT / h=HINT / x=EXIT",13,10,0
 	hintCarriage		db 13,0
@@ -62,6 +63,7 @@ segment .bss
 	displayHint	resd	1
 	hasKey		resd	1
 	gameEnd		resd	1
+	menuEnd		resd	1
 	currentBoard	resd	1
 	frameBuffer	resd	102400
 		;this array tells the checkChar function what the character in front is
@@ -75,6 +77,11 @@ segment .bss
 	boardArray	resb	200
 	STARTX		resd	1
 	STARTY		resd	1
+	menuX		resd	1
+	menuY		resd	1
+	spacePressed resd	1
+		;stores the main menu
+	mainMenu	resb	2048
 
 segment .text
 
@@ -101,12 +108,115 @@ main:
 	mov		ebp, esp
 			; put the terminal in raw mode so the game works nicely
 		call	raw_mode_on
-			; read the game board file into the global variable
-		mov		DWORD [currentBoard], 0
 			;populate boardArray with all the game boards
 			;serves the same purpose as the boards array did
 		call	loadBoards
+		call	loadMenu
+		call	menuLoop
+			; restore old terminal functionality
+		call raw_mode_off
+	mov		eax, 0
+	mov		esp, ebp
+	pop		ebp
+	ret
 
+menuLoop:
+	push	ebp
+	mov		ebp, esp
+
+		mov		eax, 14
+		mov		DWORD [menuX], eax
+		mov		eax, 11
+		mov		DWORD [menuY], eax
+		mov		DWORD [menuEnd], 0
+
+		menu_loop:
+			cmp		DWORD [menuEnd], 1
+			je		menu_loop_end
+	;			; draw the game board
+			call	renderMenu
+				; get an action from the user
+			call	getchar
+	;			; store the current position
+	;			; we will test if the new position is legal
+	;			; if not, we will restore these
+			mov		esi, DWORD [menuX]
+			mov		edi, DWORD [menuY]
+	;			; choose what to do
+	;			; check where to move the player based on input
+			cmp		eax, 'w'
+			je 		menuUp
+			cmp		eax, 'a'
+			je		menuLeft
+			cmp		eax, 's'
+			je		menuDown
+			cmp		eax, 'd'	
+			je		menuRight
+			cmp		eax, 0x20
+			je		menuSpace
+			jmp		menu_loop
+			menuUp:
+				dec		DWORD [menuY]
+				jmp		minputFound
+			menuLeft:
+				sub		DWORD [menuX], 16
+				jmp		minputFound
+			menuDown:
+				inc		DWORD [menuY]
+				jmp		minputFound
+			menuRight:
+				add		DWORD [menuX], 16
+				jmp		minputFound
+			menuSpace:
+				jmp		minputFound
+			minputFound:
+				;save user input
+			mov		ebx, eax
+
+			mov		ecx, 0
+			mov		eax, 50
+			mul		DWORD [menuY]
+			add		eax, DWORD [menuX]
+			call	checkCharMenu
+
+		jmp		menu_loop
+		menu_loop_end:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+checkCharMenu:
+	push	ebp
+	mov		ebp, esp
+		cmp		DWORD [menuX], esi
+		jne		checkMove
+		cmp		DWORD [menuY], edi
+		jne		checkMove
+			cmp		DWORD [menuX], 30
+			jne		notClose
+				inc		DWORD [menuEnd]
+				jmp		moveCursor
+			notClose:
+			cmp		DWORD [menuX], 14
+			jne		notGame
+				call 	gameloop
+				jmp		moveCursor
+			notGame:
+		checkMove:
+		cmp		BYTE [mainMenu + eax], '-'
+		jne		noMoveCursor
+			jmp		moveCursor
+		noMoveCursor:
+		mov		DWORD [menuX], esi
+		mov		DWORD [menuY], edi
+		moveCursor:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+gameloop:
+	push	ebp
+	mov		ebp, esp
 		GOHERE:
 			;if the previous board was the last one, close the game
 		mov		eax, 19
@@ -214,13 +324,119 @@ main:
 
 		jmp		game_loop
 		game_loop_end:
-			; restore old terminal functionality
-		call raw_mode_off
-	mov		eax, 0
+
 	mov		esp, ebp
 	pop		ebp
 	ret
 
+loadMenu:
+	push	ebp
+	mov		ebp, esp
+		sub		esp, 8
+			;open the file
+		push	mode_r
+		push	menuBoard
+		call	fopen
+		add		esp, 8
+			;free up eax
+		mov		DWORD[ebp - 4], eax
+			;initialize the indexer
+		mov		DWORD [ebp - 8], 0
+		topMenuLoop:
+		mov		ecx, DWORD [ebp - 8]
+		lea		edx, [mainMenu + ecx]
+		cmp		eax, 0xffffffff
+		je		endMenuLoop
+				;read the line into boardArray
+			push	DWORD [ebp - 4]
+			push	51
+			push	edx
+			call	fgets
+			add		esp, 12
+				; slurp up the newline
+			push	DWORD [ebp - 4]
+			call	fgetc
+			add		esp, 4
+				;replace the new line with a null byte
+		;	mov		ecx, DWORD [ebp - 8]
+		;	mov		BYTE [mainMenu + ecx + 50], 0
+		add		DWORD [ebp - 8], 50
+		jmp		topMenuLoop
+		endMenuLoop:
+			;close the file
+		push	DWORD [ebp - 4]
+		call	fclose
+		add		esp, 4
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+renderMenu:
+	push	ebp
+	mov		ebp, esp
+			; two ints, two for loop counters
+			; ebp-4, ebp-8
+		sub		esp, 8
+
+		push	clear_screen_code
+		call	printf
+		add		esp, 4
+			;initialize frame buffer index
+		mov		ecx, 0
+			; outside loop by height
+			; i.e. for(c=0; c<height; c++)
+		mov		DWORD [ebp - 4], 0
+		my_loop_start:
+		cmp		DWORD [ebp - 4], 21
+		je		my_loop_end
+				; inside loop by width
+				; i.e. for(c=0; c<width; c++)
+			mov		DWORD [ebp - 8], 0
+			mx_loop_start:
+			cmp		DWORD [ebp - 8], 50
+			je 		mx_loop_end
+					; check if (xpos,ypos)=(x,y)
+				mov		eax, DWORD [menuX]
+				cmp		eax, DWORD [ebp - 8]
+				jne		mprint_board
+				mov		eax, DWORD [menuY]
+				cmp		eax, DWORD [ebp - 4]
+				jne		mprint_board
+
+					mov		BYTE [frameBuffer + ecx], '>'
+					inc		ecx
+
+					jmp		mprint_end
+				mprint_board:
+				mov		eax, DWORD [ebp - 4]
+				mov		ebx, 50
+				mul		ebx
+				add		eax, DWORD [ebp - 8]
+				mov		ebx, 0
+				mov		bl, BYTE [mainMenu + eax]
+				mov		BYTE [frameBuffer + ecx], bl
+				inc		ecx
+				mprint_end:
+			inc		DWORD [ebp - 8]
+			jmp		mx_loop_start
+			mx_loop_end:
+				; write a carriage return (necessary when in raw mode)
+			mov		BYTE [frameBuffer + ecx], 0x0d
+			inc		ecx
+				; write a newline
+			mov		BYTE [frameBuffer + ecx], 10
+			inc		ecx
+		inc		DWORD [ebp - 4]
+		jmp		my_loop_start
+		my_loop_end:
+
+		push	frameBuffer
+		push	boardFormat
+		call	printf
+		add		esp, 8
+	mov		esp, ebp
+	pop		ebp
+	ret
 checkCharTest:
 	push	ebp
 	mov		ebp, esp
@@ -381,6 +597,8 @@ loadBoards:
 	push	ebp
 	mov		ebp, esp
 		sub		esp, 8
+			; initialize currentBoard
+		mov		DWORD [currentBoard], 0
 			;open the file
 		push	mode_r
 		push	gameBoards
