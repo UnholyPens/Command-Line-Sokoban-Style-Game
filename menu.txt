@@ -9,8 +9,7 @@
 |                                                |
 |                                                |
 |                                                |
-|             -start          -close             |
-|                                                |
+|             )start          )close             |
 |                                                |
 |                                                |
 |                                                |
