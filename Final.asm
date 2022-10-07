@@ -308,8 +308,8 @@ renderMenu:
 				cmp		edx, DWORD [ebp - 4]
 				jne		mprint_board
 					mov		esi, 0
-					mov		DWORD [colorCode], 7
-					lea		edi, [buttonColor]
+					mov		DWORD [colorCode], 3
+					lea		edi, [pressPlateColor]
 					selectColorLoop:
 					cmp		BYTE [edi + esi], 0
 					je		endSelectColorLoop
@@ -325,7 +325,7 @@ renderMenu:
 				mprint_board:
 				call	mcharRender
 				optPrint:
-				cmp		DWORD [colorCode], 7
+				cmp		DWORD [colorCode], 3
 				jne		notOpt
 					mov		edx, 0
 					SkipLoopTop:
@@ -377,14 +377,14 @@ mcharRender:
 			mSpace:
 				jmp		mredundantColor
 			isBorder:	
-				mov		DWORD [colorCode], 3
+				mov		DWORD [colorCode], 4
 				jmp		foundBorder
 			menuOpt:
-				mov		DWORD [colorCode], 7
+				mov		DWORD [colorCode], 3
 				mov		bl, ' '
 				jmp		foundBorder
 			notBorder:
-			mov		DWORD [colorCode], 9
+			mov		DWORD [colorCode], 7
 			foundBorder:
 
 			mov		esi, DWORD[colorCode]
