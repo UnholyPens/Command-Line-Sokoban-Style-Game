@@ -307,6 +307,7 @@ renderMenu:
 				mov		edx, DWORD [menuY]
 				cmp		edx, DWORD [ebp - 4]
 				jne		mprint_board
+						;if they are equal, print the selected menu opt
 					mov		esi, 0
 					mov		DWORD [colorCode], 3
 					lea		edi, [pressPlateColor]
@@ -323,8 +324,10 @@ renderMenu:
 					inc		ecx
 					jmp		optPrint
 				mprint_board:
+					;else, print the next character in the buffer
 				call	mcharRender
 				optPrint:
+					;If a menu opt indicator was printed, ensure the rest of the opt is the same color
 				cmp		DWORD [colorCode], 3
 				jne		notOpt
 					mov		edx, 0
