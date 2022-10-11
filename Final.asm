@@ -66,7 +66,7 @@ segment .bss
 	gameEnd		resd	1
 	menuEnd		resd	1
 	currentBoard	resd	1
-	frameBuffer	resd	102400
+	frameBuffer	resd	1024
 		;this array tells the checkChar function what the character in front is
 	lastColor	resd	1
 	checkArr	resb	256
