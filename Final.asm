@@ -94,8 +94,6 @@ segment .text
 	extern	putchar
 	extern	getchar
 	extern	printf
-	extern	stdin
-	extern	fseek
 	extern	fopen
 	extern	fread
 	extern	fgetc
