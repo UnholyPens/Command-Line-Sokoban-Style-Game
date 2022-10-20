@@ -1,6 +1,6 @@
 ; the size of the game screen in characters
-%define HEIGHT 16
-%define WIDTH 20
+%define GHEIGHT 16
+%define GWIDTH 20
 
 segment .data
 
@@ -52,9 +52,9 @@ segment .data
 segment .bss
 
 		; this array stores the current rendered gameboard (HxW)
-	board		resb	(HEIGHT * WIDTH)
+	board		resb	300
 		;this array is used to store door characters when they are opened
-	doorLayer	resb	(HEIGHT * WIDTH)
+	doorLayer	resb	300
 		; these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
@@ -66,11 +66,11 @@ segment .bss
 	gameEnd		resd	1
 	menuEnd		resd	1
 	currentBoard	resd	1
-	frameBuffer	resd	1024
+	frameBuffer	resb	1536
 		;this array tells the checkChar function what the character in front is
 	lastColor	resd	1
-	checkArr	resb	256
-	rockArr		resb	256
+	checkArr	resb	126
+	rockArr		resb	126
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is dynamically
@@ -78,11 +78,9 @@ segment .bss
 	boardArray	resb	200
 	STARTX		resd	1
 	STARTY		resd	1
-	menuX		resd	1
-	menuY		resd	1
 	spacePressed resd	1
 		;stores the main menu
-	mainMenu	resb	2048
+	mainMenu	resb	1536
 
 segment .text
 
@@ -96,6 +94,8 @@ segment .text
 	extern	putchar
 	extern	getchar
 	extern	printf
+	extern	stdin
+	extern	fseek
 	extern	fopen
 	extern	fread
 	extern	fgetc
@@ -205,23 +205,26 @@ menuLoop:
 	mov		ebp, esp
 
 		mov		eax, 14
-		mov		DWORD [menuX], eax
+		mov		DWORD [xpos], eax
 		mov		eax, 11
-		mov		DWORD [menuY], eax
+		mov		DWORD [ypos], eax
 		mov		DWORD [menuEnd], 0
 
 		menu_loop:
 			cmp		DWORD [menuEnd], 1
 			je		menu_loop_end
 				; draw the game board
-			call	renderMenu
+			push	mainMenu
+			push	50
+			push	21
+			call	render
 				; get an action from the user
 			call	getchar
 				; store the current position
 				; we will test if the new position is legal
 				; if not, we will restore these
-			mov		esi, DWORD [menuX]
-			mov		edi, DWORD [menuY]
+			mov		esi, DWORD [xpos]
+			mov		edi, DWORD [ypos]
 				; check where to move the player based on input
 			cmp		eax, 'w'
 			je 		menuUp
@@ -235,16 +238,16 @@ menuLoop:
 			je		menuSpace
 			jmp		menu_loop
 			menuUp:
-				dec		DWORD [menuY]
+				dec		DWORD [ypos]
 				jmp		minputFound
 			menuLeft:
-				sub		DWORD [menuX], 16
+				sub		DWORD [xpos], 16
 				jmp		minputFound
 			menuDown:
-				inc		DWORD [menuY]
+				inc		DWORD [ypos]
 				jmp		minputFound
 			menuRight:
-				add		DWORD [menuX], 16
+				add		DWORD [xpos], 16
 				jmp		minputFound
 			menuSpace:
 				jmp		minputFound
@@ -254,8 +257,8 @@ menuLoop:
 
 			mov		ecx, 0
 			mov		eax, 50
-			mul		DWORD [menuY]
-			add		eax, DWORD [menuX]
+			mul		DWORD [ypos]
+			add		eax, DWORD [xpos]
 			call	checkCharMenu
 
 		jmp		menu_loop
@@ -267,16 +270,65 @@ menuLoop:
 	pop		ebp
 	ret
 
-renderMenu:
+render:
+	;has the arguments of character array, width, height
 	push	ebp
 	mov		ebp, esp
-			; two ints, two for loop counters
+			; two local ints, for two loop counters
 			; ebp-4, ebp-8
 		sub		esp, 8
-
+		
+		; clear the screen
 		push	clear_screen_code
 		call	printf
 		add		esp, 4
+
+		mov		edx, DWORD [ebp + 16]
+		push	edx
+		cmp		edx, board
+		jne		renMenu
+				;add color
+			push	helpStrColor
+			call	printf
+			add		esp, 4
+				; print the help information
+			cmp		DWORD [displayHint], 0
+			je		noHint
+				push	hintNL
+				call	printf
+				add		esp, 4
+				
+				mov		ebx, 0
+				hintLoopTop:
+				cmp		ebx, 384
+				je		hintLoopDone
+					lea		ecx, [hintStr + ebx]
+					push	ecx
+					call	printf
+					add		esp, 4
+					push	hintCarriage
+					call	printf
+					add		esp, 4
+				add		ebx, 128
+				jmp		hintLoopTop
+				hintLoopDone:
+
+				push	hintNL
+				call	printf
+				add		esp, 4
+				jmp		hintShown
+			noHint:
+				push	hintBlank
+				call	printf
+				add		esp, 4
+			hintShown:
+				;Print the key string
+			push	DWORD[hasKey]
+			push	key_str
+			call	printf
+			add		esp, 8
+		renMenu:
+		pop		edx
 
 		mov		DWORD [lastColor], 100
 			;initialize frame buffer index
@@ -284,68 +336,99 @@ renderMenu:
 			; outside loop by height
 			; i.e. for(c=0; c<height; c++)
 		mov		DWORD [ebp - 4], 0
-		my_loop_start:
-		cmp		DWORD [ebp - 4], 21
-		je		my_loop_end
+		y_loop_start:
+		mov		eax, DWORD [ebp + 8]
+		cmp		DWORD [ebp - 4], eax
+		je		y_loop_end
 				; inside loop by width
 				; i.e. for(c=0; c<width; c++)
 			mov		DWORD [ebp - 8], 0
-			mx_loop_start:
-			cmp		DWORD [ebp - 8], 50
-			je 		mx_loop_end
-					;save the current board character into bl
+			x_loop_start:
+			mov		eax, DWORD [ebp + 12]
+			cmp		DWORD [ebp - 8], eax
+			je 		x_loop_end
+					;Save edx's value
+				push	edx
+					;retrieve the next board character to be printed
 				mov		eax, DWORD [ebp - 4]
-				mov		ebx, 50
+				mov		ebx, DWORD [ebp + 12]
 				mul		ebx
 				add		eax, DWORD [ebp - 8]
 				mov		ebx, 0
-				mov		bl, BYTE [mainMenu + eax]
+					;retrieve edx's value
+				pop		edx
+					;move the to-be-printed byte into bl
+				mov		bl, BYTE [edx + eax]
 					; check if (xpos,ypos)=(x,y)
-				mov		edx, DWORD [menuX]
-				cmp		edx, DWORD [ebp - 8]
-				jne		mprint_board
-				mov		edx, DWORD [menuY]
-				cmp		edx, DWORD [ebp - 4]
-				jne		mprint_board
-						;if they are equal, print the selected menu opt
+				push	eax
+				mov		eax, DWORD [xpos]
+				cmp		eax, DWORD [ebp - 8]
+				jne		print_board
+				mov		eax, DWORD [ypos]
+				cmp		eax, DWORD [ebp - 4]
+				jne		print_board
+					pop		eax
+					cmp		edx, mainMenu
+					jne		printPlayer
+						lea		edi, [pressPlateColor]
+						mov		DWORD [colorCode], 3
+						push	'>'
+						jmp		somewhere
+					printPlayer:
+						lea		edi, [playerColor]
+						mov		DWORD [lastColor], 99
+						push	'O'
+						jmp		somewhere
+					somewhere:
 					mov		esi, 0
-					mov		DWORD [colorCode], 3
-					lea		edi, [pressPlateColor]
 					selectColorLoop:
 					cmp		BYTE [edi + esi], 0
 					je		endSelectColorLoop
-						mov		dl, BYTE [edi + esi]
-						mov		BYTE [frameBuffer + ecx], dl
+						mov		bl, BYTE [edi + esi]
+						mov		BYTE [frameBuffer + ecx], bl
 						inc		ecx
 					inc		esi
 					jmp		selectColorLoop
 					endSelectColorLoop:
-					mov		BYTE [frameBuffer + ecx], '>'
+					pop		ebx
+					mov		BYTE [frameBuffer + ecx], bl
 					inc		ecx
-					jmp		optPrint
-				mprint_board:
-					;else, print the next character in the buffer
-				call	mcharRender
-				optPrint:
-					;If a menu opt indicator was printed, ensure the rest of the opt is the same color
-				cmp		DWORD [colorCode], 3
-				jne		notOpt
-					mov		edx, 0
-					SkipLoopTop:
-					cmp		edx, 5
-					je		skipLoopEnd
-						mov		bl, BYTE [mainMenu + eax + edx + 1]
-						mov		BYTE [frameBuffer + ecx], bl
-						inc		ecx
-						inc		DWORD [ebp - 8]
-					inc		edx
-					jmp		SkipLoopTop
-					skipLoopEnd:
-				notOpt:
+					jmp		print_end
+
+				print_board:
+				pop		eax
+					;render the character
+				push	edx
+				cmp		edx, mainMenu
+				jne		isGameRender
+					call	mcharRender
+					pop		edx
+					jmp		print_end
+				isGameRender:
+					call	charRender
+					pop		edx
+					jmp		print_end
+				print_end:
+				cmp		edx, mainMenu
+				jne		mprint_end
+					cmp		DWORD [colorCode], 3
+					jne		notOpt
+						mov		esi, 0
+						SkipLoopTop:
+						cmp		esi, 5
+						je		skipLoopEnd
+							mov		bl, BYTE [mainMenu + eax + esi + 1]
+							mov		BYTE [frameBuffer + ecx], bl
+							inc		ecx
+							inc		DWORD [ebp - 8]
+						inc		esi
+						jmp		SkipLoopTop
+						skipLoopEnd:
+					notOpt:
 				mprint_end:
 			inc		DWORD [ebp - 8]
-			jmp		mx_loop_start
-			mx_loop_end:
+			jmp		x_loop_start
+			x_loop_end:
 				; write a carriage return (necessary when in raw mode)
 			mov		BYTE [frameBuffer + ecx], 0x0d
 			inc		ecx
@@ -353,9 +436,8 @@ renderMenu:
 			mov		BYTE [frameBuffer + ecx], 10
 			inc		ecx
 		inc		DWORD [ebp - 4]
-		jmp		my_loop_start
-		my_loop_end:
-
+		jmp		y_loop_start
+		y_loop_end:
 		push	frameBuffer
 		push	boardFormat
 		call	printf
@@ -417,18 +499,22 @@ mcharRender:
 checkCharMenu:
 	push	ebp
 	mov		ebp, esp
-		cmp		DWORD [menuX], esi
+		cmp		DWORD [xpos], esi
 		jne		checkMove
-		cmp		DWORD [menuY], edi
+		cmp		DWORD [ypos], edi
 		jne		checkMove
-			cmp		DWORD [menuX], 30
+			cmp		DWORD [xpos], 30
 			jne		notClose
 				inc		DWORD [menuEnd]
 				jmp		moveCursor
 			notClose:
-			cmp		DWORD [menuX], 14
+			cmp		DWORD [xpos], 14
 			jne		notGame
+				push	DWORD [xpos]
+				push	DWORD [ypos]
 				call 	gameloop
+				pop		DWORD [ypos]
+				pop		DWORD [xpos]
 				jmp		moveCursor
 			notGame:
 		checkMove:
@@ -436,8 +522,8 @@ checkCharMenu:
 		jne		noMoveCursor
 			jmp		moveCursor
 		noMoveCursor:
-		mov		DWORD [menuX], esi
-		mov		DWORD [menuY], edi
+		mov		DWORD [xpos], esi
+		mov		DWORD [ypos], edi
 		moveCursor:
 	mov		esp, ebp
 	pop		ebp
@@ -488,7 +574,11 @@ gameloop:
 			cmp		DWORD [gameEnd], 1
 			je		game_loop_end	
 				; draw the game board
+			push	board
+			push	GWIDTH
+			push	GHEIGHT
 			call	render
+			add		esp, 12
 			mov		DWORD [displayHint], 0
 				; get an action from the user
 			testing2:
@@ -542,7 +632,7 @@ gameloop:
 				; take the potential new pos for the player, and see if it's valid
 				; (W * y) + x = pos
 			mov		ecx, 0
-			mov		eax, WIDTH
+			mov		eax, GWIDTH
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 			mov		cl, BYTE [board + eax]	
@@ -655,13 +745,13 @@ pushRock:
 			;Load the address of the next space in the array 
 			;according to the direction the rock is moivng
 		nextDir1:
-			lea		ebx, [board + eax - WIDTH]
+			lea		ebx, [board + eax - GWIDTH]
 			jmp		moveRock
 		nextDir2:
 			lea		ebx, [board + eax - 1]
 			jmp		moveRock
 		nextDir3:
-			lea		ebx, [board + eax + WIDTH]
+			lea		ebx, [board + eax + GWIDTH]
 			jmp		moveRock
 		nextDir4:
 			lea		ebx, [board + eax + 1]
@@ -735,15 +825,15 @@ init_board:
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
 		read_loop:
-		cmp		DWORD [ebp - 8], HEIGHT
+		cmp		DWORD [ebp - 8], GHEIGHT
 		je		read_loop_end
-				; find the offset (WIDTH * counter)
-			mov		eax, WIDTH
+				; find the offset (GWIDTH * counter)
+			mov		eax, GWIDTH
 			mul		DWORD [ebp - 8]
 			lea		ebx, [board + eax]
 				; read the bytes into the buffer
 			push	DWORD [ebp - 4]
-			push	WIDTH
+			push	GWIDTH
 			push	1
 			push	ebx
 			call	fread
@@ -757,7 +847,7 @@ init_board:
 		read_loop_end:
 			;populate the door layer
 		mov		ebx, 0
-		mov		edx, WIDTH*HEIGHT
+		mov		edx, GWIDTH*GHEIGHT
 		mov		edi, 0
 		doorLoop:
 		cmp		edi, edx
@@ -793,129 +883,6 @@ init_board:
 		push	DWORD [ebp - 4]
 		call	fclose
 		add		esp, 4
-	mov		esp, ebp
-	pop		ebp
-	ret
-
-render:
-	push	ebp
-	mov		ebp, esp
-			; two ints, two for loop counters
-			; ebp-4, ebp-8
-		sub		esp, 8
-			; clear the screen
-		push	clear_screen_code
-		call	printf
-		add		esp, 4
-			;add color
-		push	helpStrColor
-		call	printf
-		add		esp, 4
-			; print the help information
-		cmp		DWORD [displayHint], 0
-		je		noHint
-			push	hintNL
-			call	printf
-			add		esp, 4
-			
-			mov		ebx, 0
-			hintLoopTop:
-			cmp		ebx, 384
-			je		hintLoopDone
-				lea		ecx, [hintStr + ebx]
-				push	ecx
-				call	printf
-				add		esp, 4
-				push	hintCarriage
-				call	printf
-				add		esp, 4
-			add		ebx, 128
-			jmp		hintLoopTop
-			hintLoopDone:
-
-			push	hintNL
-			call	printf
-			add		esp, 4
-			jmp		hintShown
-		noHint:
-			push	hintBlank
-			call	printf
-			add		esp, 4
-		hintShown:
-			;Print the key string
-		push	DWORD[hasKey]
-		push	key_str
-		call	printf
-		add		esp, 8
-
-		mov		DWORD [lastColor], 100
-			;initialize frame buffer index
-		mov		ecx, 0
-			; outside loop by height
-			; i.e. for(c=0; c<height; c++)
-		mov		DWORD [ebp - 4], 0
-		y_loop_start:
-		cmp		DWORD [ebp - 4], HEIGHT
-		je		y_loop_end
-				; inside loop by width
-				; i.e. for(c=0; c<width; c++)
-			mov		DWORD [ebp - 8], 0
-			x_loop_start:
-			cmp		DWORD [ebp - 8], WIDTH
-			je 		x_loop_end
-					; check if (xpos,ypos)=(x,y)
-				mov		eax, DWORD [xpos]
-				cmp		eax, DWORD [ebp - 8]
-				jne		print_board
-				mov		eax, DWORD [ypos]
-				cmp		eax, DWORD [ebp - 4]
-				jne		print_board
-						; if both were equal, put the player into the frame buffer
-						; first, add the player's color code to the buffer
-					mov		esi, 0
-					playerColorLoop:
-					lea		edi, [playerColor]
-					cmp		BYTE [edi + esi], 0
-					je		endPlayerColorLoop
-						mov		dl, BYTE [edi + esi]
-						mov		BYTE [frameBuffer + ecx], dl
-						inc		ecx
-					inc		esi
-					jmp		playerColorLoop
-					endPlayerColorLoop:
-						;then add the player character to the buffer
-					mov		BYTE [frameBuffer + ecx], 'O'
-					inc		ecx
-						;update lastChar
-					mov		DWORD [lastColor], 99
-					jmp		print_end
-				print_board:
-					; otherwise print whatever's in the buffer
-				mov		eax, DWORD [ebp - 4]
-				mov		ebx, WIDTH
-				mul		ebx
-				add		eax, DWORD [ebp - 8]
-				mov		ebx, 0
-				mov		bl, BYTE [board + eax]
-					;render the character
-				call	charRender
-				print_end:
-			inc		DWORD [ebp - 8]
-			jmp		x_loop_start
-			x_loop_end:
-				; write a carriage return (necessary when in raw mode)
-			mov		BYTE [frameBuffer + ecx], 0x0d
-			inc		ecx
-				; write a newline
-			mov		BYTE [frameBuffer + ecx], 10
-			inc		ecx
-		inc		DWORD [ebp - 4]
-		jmp		y_loop_start
-		y_loop_end:
-		push	frameBuffer
-		push	boardFormat
-		call	printf
-		add		esp, 8
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -1034,7 +1001,7 @@ charRender:
 			mov		DWORD [colorCode], 3
 			mov		edi, 0
 			plateLoop:
-			cmp		edi, WIDTH*HEIGHT
+			cmp		edi, 300
 			je		noPlates
 				cmp		BYTE [board + edi], 'P'
 				jne		checkPlates
@@ -1062,7 +1029,7 @@ charRender:
 			mov		edi, 0
 				;check the board layer for an inactive button
 			testLoop:
-			cmp		edi, WIDTH*HEIGHT
+			cmp		edi, 300
 			je		testPassed
 				cmp		BYTE [board + edi], 'b'
 				jne		checkActive
@@ -1087,7 +1054,7 @@ charRender:
 			;Grey Button Door
 		rGButtDoor:
 			mov		DWORD [colorCode], 8
-			mov		edx, WIDTH*HEIGHT
+			mov		edx, 300
 			mov		edi, 0
 				;check the board layer for an inactive button
 			gtestLoop:
@@ -1130,7 +1097,7 @@ charRender:
 			notGemPlate:
 			cmp		bl, '^'
 			jne		notGemDoor
-				mov		edx, WIDTH*HEIGHT
+				mov		edx, 300
 				mov		edi, 0
 				gemLoop:
 				cmp		edi, edx
