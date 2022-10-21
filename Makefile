@@ -7,4 +7,5 @@ clean:
 
 Final: Final.asm
 	nasm -f elf -F dwarf -g Final.asm
-	gcc -no-pie -g -m32 -o Final Final.o
+	nasm -f elf -F dwarf -g thing.asm
+	gcc -no-pie -g -m32 -o Final Final.o thing.o

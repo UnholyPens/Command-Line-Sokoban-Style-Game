@@ -3,7 +3,6 @@
 %define GWIDTH 20
 
 segment .data
-
 		;this file contains a list of all the game boards,
 		;and is used to dynamically fill boardArray
 	gameBoards			db "boards/boards.txt",0
@@ -32,8 +31,6 @@ segment .data
 	boardFormat			db "%s",0
 		; used to change the terminal mode
 	mode_r				db "r",0
-	raw_mode_on_cmd		db "stty raw -echo",0
-	raw_mode_off_cmd	db "stty -raw echo",0
 		; ANSI escape sequence to clear/refresh the screen
 	clear_screen_code	db	27,"[2J",27,"[H",27,"[0m",0
 		; things the program will print
@@ -90,6 +87,9 @@ segment .text
 	global  init_board
 	global  render
 
+	extern	raw_mode_on
+	extern 	raw_mode_off
+
 	extern	system
 	extern	putchar
 	extern	getchar
@@ -106,12 +106,13 @@ main:
 	push	ebp
 	mov		ebp, esp
 			; put the terminal in raw mode so the game works nicely
+
 		call	raw_mode_on
 			;populate boardArray with all the game boards
 			;serves the same purpose as the boards array did
-		call	loadBoards
-		call	loadMenu
-		call	menuLoop
+	;	call	loadBoards
+	;	call	loadMenu
+	;	call	menuLoop
 			; restore old terminal functionality
 		call raw_mode_off
 	mov		eax, 0
@@ -275,13 +276,13 @@ render:
 			; two local ints, for two loop counters
 			; ebp-4, ebp-8
 		sub		esp, 8
-		
-		; clear the screen
+			; clear the screen
 		push	clear_screen_code
 		call	printf
 		add		esp, 4
-
+			;if rendering game board, display hint text
 		mov		edx, DWORD [ebp + 16]
+			;save the board value
 		push	edx
 		cmp		edx, board
 		jne		renMenu
@@ -295,7 +296,7 @@ render:
 				push	hintNL
 				call	printf
 				add		esp, 4
-				
+					;after printing the spacer, print the hint text
 				mov		ebx, 0
 				hintLoopTop:
 				cmp		ebx, 384
@@ -310,12 +311,13 @@ render:
 				add		ebx, 128
 				jmp		hintLoopTop
 				hintLoopDone:
-
+					;print another spacer
 				push	hintNL
 				call	printf
 				add		esp, 4
 				jmp		hintShown
 			noHint:
+					;if displayHint is 0, just display blank space
 				push	hintBlank
 				call	printf
 				add		esp, 4
@@ -326,8 +328,8 @@ render:
 			call	printf
 			add		esp, 8
 		renMenu:
+			;retrieve the board information
 		pop		edx
-
 		mov		DWORD [lastColor], 100
 			;initialize frame buffer index
 		mov		ecx, 0
@@ -345,7 +347,7 @@ render:
 			mov		eax, DWORD [ebp + 12]
 			cmp		DWORD [ebp - 8], eax
 			je 		x_loop_end
-					;Save edx's value
+					;Save board information
 				push	edx
 					;retrieve the next board character to be printed
 				mov		eax, DWORD [ebp - 4]
@@ -353,11 +355,12 @@ render:
 				mul		ebx
 				add		eax, DWORD [ebp - 8]
 				mov		ebx, 0
-					;retrieve edx's value
+					;retrieve board information
 				pop		edx
 					;move the to-be-printed byte into bl
 				mov		bl, BYTE [edx + eax]
 					; check if (xpos,ypos)=(x,y)
+					;save the value of eax
 				push	eax
 				mov		eax, DWORD [xpos]
 				cmp		eax, DWORD [ebp - 8]
@@ -365,19 +368,23 @@ render:
 				mov		eax, DWORD [ypos]
 				cmp		eax, DWORD [ebp - 4]
 				jne		print_board
+						;retrieve eax
 					pop		eax
 					cmp		edx, mainMenu
 					jne		printPlayer
+							;if printing the menu, do this
 						lea		edi, [pressPlateColor]
 						mov		DWORD [colorCode], 3
 						push	'>'
 						jmp		somewhere
 					printPlayer:
+							;if printing game board, do this
 						lea		edi, [playerColor]
 						mov		DWORD [lastColor], 99
 						push	'O'
 						jmp		somewhere
 					somewhere:
+						;add the respective color code to the frame buffer
 					mov		esi, 0
 					selectColorLoop:
 					cmp		BYTE [edi + esi], 0
@@ -388,25 +395,30 @@ render:
 					inc		esi
 					jmp		selectColorLoop
 					endSelectColorLoop:
+						;pop off the character pushed to the stack earlier,
+						;then add it to the frame buffer
 					pop		ebx
 					mov		BYTE [frameBuffer + ecx], bl
 					inc		ecx
 					jmp		print_end
-
 				print_board:
 				pop		eax
 					;render the character
 				push	edx
 				cmp		edx, mainMenu
 				jne		isGameRender
+						;if rendering menu, do this
 					call	mcharRender
 					pop		edx
 					jmp		print_end
 				isGameRender:
+						;if rendering game board, do this	
 					call	charRender
 					pop		edx
 					jmp		print_end
 				print_end:
+					;if printing the menu, and if a menu option was just printed,
+					;ensure that the rest of the option is the same color
 				cmp		edx, mainMenu
 				jne		mprint_end
 					cmp		DWORD [colorCode], 3
@@ -1275,26 +1287,6 @@ init_arrs:
 		inc		esi
 		jmp		arrLoop
 		endArrLoop:
-	mov		esp, ebp
-	pop		ebp
-	ret
-
-raw_mode_on:
-	push	ebp
-	mov		ebp, esp
-		push	raw_mode_on_cmd
-		call	system
-		add		esp, 4
-	mov		esp, ebp
-	pop		ebp
-	ret
-
-raw_mode_off:
-	push	ebp
-	mov		ebp, esp
-		push	raw_mode_off_cmd
-		call	system
-		add		esp, 4
 	mov		esp, ebp
 	pop		ebp
 	ret
