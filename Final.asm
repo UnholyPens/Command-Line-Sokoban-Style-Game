@@ -82,13 +82,12 @@ segment .bss
 segment .text
 
 	global	main
-	global  raw_mode_on
-	global  raw_mode_off
 	global  init_board
 	global  render
 
 	extern	raw_mode_on
 	extern 	raw_mode_off
+	extern	mcharRender
 
 	extern	system
 	extern	putchar
@@ -110,9 +109,9 @@ main:
 		call	raw_mode_on
 			;populate boardArray with all the game boards
 			;serves the same purpose as the boards array did
-	;	call	loadBoards
-	;	call	loadMenu
-	;	call	menuLoop
+		call	loadBoards
+		call	loadMenu
+		call	menuLoop
 			; restore old terminal functionality
 		call raw_mode_off
 	mov		eax, 0
@@ -435,7 +434,7 @@ render:
 						jmp		SkipLoopTop
 						skipLoopEnd:
 					notOpt:
-				mprint_end:
+				mprint_end:	
 			inc		DWORD [ebp - 8]
 			jmp		x_loop_start
 			x_loop_end:
