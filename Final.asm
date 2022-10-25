@@ -480,10 +480,8 @@ mcharRender:
 			notBorder:
 			mov		DWORD [colorCode], 7
 			foundBorder:
-
 			mov		esi, DWORD[colorCode]
 			mov		edi, DWORD[colorCodeArray + esi * 4]
-
 			cmp		DWORD [lastColor], esi
 			je		mredundantColor
 				mov		esi, 0
