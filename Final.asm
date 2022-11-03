@@ -73,7 +73,7 @@ segment .bss
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is dynamically
 		;filled in loadBoards
-	boardArray	resb	200
+	boardArray	resb	2100
 	STARTX		resd	1
 	STARTY		resd	1
 	spacePressed resd	1
@@ -147,14 +147,14 @@ loadBoards:
 		je		endReadLoop
 				;read the line into boardArray
 			push	DWORD [ebp - 4]
-			push	20
+			push	23
 			push	edx
 			call	fgets
 			add		esp, 12
 				;replace the new line with a null byte
 			mov		ecx, DWORD [ebp - 8]
-			mov		BYTE [boardArray + ecx + 18], 0
-		add		DWORD [ebp - 8], 19
+			mov		BYTE [boardArray + ecx + 21], 0
+		add		DWORD [ebp - 8], 22
 		jmp		topReadLoop
 		endReadLoop:
 			;close the file
@@ -592,25 +592,27 @@ checkCharMenu:
 				notGame:
 				jmp		checkMove
 			notMain1:
-				cmp		DWORD [xpos], 5
-				jne		waiting
-				cmp		DWORD [ypos], 8
-				jne 	waiting
-					heee:
-					push	DWORD [xpos]
-					push	DWORD [ypos]
-					call	gameloop
-					pop		DWORD [ypos]
-					pop		DWORD [xpos]
-					jmp		moveCursor
-				waiting:
-				cmp		DWORD [xpos], 21
-				jne		rawr
 				cmp		DWORD [ypos], 18
 				jne		rawr
 					inc		DWORD [menuEnd]
 					jmp		moveCursor
 				rawr:
+					mov		eax, DWORD [ypos]
+					sub		eax, 8
+					mov		DWORD [currentBoard], eax
+					mov		eax, DWORD [xpos]
+					sub		eax, 5
+					mov		ecx, 4
+					div		ecx
+					push	DWORD [xpos]
+					push	DWORD [ypos]
+					push	eax
+					call	gameloop
+					add		esp, 4
+					pop		DWORD [ypos]
+					pop		DWORD [xpos]
+					jmp		moveCursor
+				waiting:
 				jmp		checkMove
 		checkMove:
 		
@@ -691,17 +693,19 @@ gameloop:
 	push	ebp
 	mov		ebp, esp
 		GOHERE:
-			;if the previous board was the last one, close the game
-		mov		eax, 19
+		mov		eax, 220
+		mul		DWORD [ebp + 8]
+		mov		ebx, eax
+		mov		eax, 22
 		mul		DWORD [currentBoard]
+		add		eax, ebx
+			;if the previous board was the last one, close the game
 		cmp		BYTE [boardArray + eax], 0
 		jne		validBoard
 			inc		DWORD[gameEnd]
 			jmp		game_loop
 		validBoard:
 			;display the initial board, or update it to the next one
-		mov		eax, 19
-		mul		DWORD [currentBoard]
 		lea		ecx, [boardArray + eax]
 		push	ecx
 		call	init_board
@@ -783,7 +787,7 @@ gameloop:
 				mov		DWORD [displayHint], 1
 				jmp		inputFound
 			resetBoard:
-				jmp		validBoard
+				jmp		GOHERE
 			inputFound:
 				;save user input
 			mov		ebx, eax
@@ -1295,8 +1299,10 @@ charRender:
 			inc		esi
 			jmp		colorLoop
 			endColorLoop:
+		push	eax
 		mov		eax, DWORD [colorCode]
 		mov		DWORD [lastColor], eax
+		pop		eax
 		redundantColor:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], bl
