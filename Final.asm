@@ -7,6 +7,7 @@ segment .data
 		;and is used to dynamically fill boardArray
 	gameBoards			db "boards/boards.txt",0
 	menuBoard			db "menu.txt",0
+	menuBoard2			db "menu2.txt",0
 		;these are the color codes used for various symbols
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
@@ -78,6 +79,7 @@ segment .bss
 	spacePressed resd	1
 		;stores the main menu
 	mainMenu	resb	1536
+	mainMenu2	resb	1536
 
 segment .text
 
@@ -87,7 +89,6 @@ segment .text
 
 	extern	raw_mode_on
 	extern 	raw_mode_off
-	extern	mcharRender
 
 	extern	system
 	extern	putchar
@@ -111,7 +112,12 @@ main:
 			;serves the same purpose as the boards array did
 		call	loadBoards
 		call	loadMenu
+		push	11
+		push	14
+		push	mainMenu
 		call	menuLoop
+		add		esp, 12
+
 			; restore old terminal functionality
 		call raw_mode_off
 	mov		eax, 0
@@ -194,6 +200,37 @@ loadMenu:
 		push	DWORD [ebp - 4]
 		call	fclose
 		add		esp, 4
+
+		push	mode_r
+		push	menuBoard2
+		call	fopen
+		add		esp, 8
+			;free up eax
+		mov		DWORD[ebp - 4], eax
+			;initialize the indexer
+		mov		DWORD [ebp - 8], 0
+		topMenuLoop2:
+		mov		ecx, DWORD [ebp - 8]
+		lea		edx, [mainMenu2 + ecx]
+		cmp		eax, 0xffffffff
+		je		endMenuLoop2
+				;read the line into boardArray
+			push	DWORD [ebp - 4]
+			push	51
+			push	edx
+			call	fgets
+			add		esp, 12
+				; slurp up the newline
+			push	DWORD [ebp - 4]
+			call	fgetc
+			add		esp, 4
+		add		DWORD [ebp - 8], 50
+		jmp		topMenuLoop2
+		endMenuLoop2:
+			;close the file
+		push	DWORD [ebp - 4]
+		call	fclose
+		add		esp, 4
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -202,9 +239,9 @@ menuLoop:
 	push	ebp
 	mov		ebp, esp
 
-		mov		eax, 14
+		mov		eax, DWORD [ebp + 12]
 		mov		DWORD [xpos], eax
-		mov		eax, 11
+		mov		eax, DWORD [ebp + 16]
 		mov		DWORD [ypos], eax
 		mov		DWORD [menuEnd], 0
 
@@ -212,10 +249,11 @@ menuLoop:
 			cmp		DWORD [menuEnd], 1
 			je		menu_loop_end
 				; draw the game board
-			push	mainMenu
+			push	DWORD [ebp + 8]
 			push	50
 			push	21
 			call	render
+			add		esp, 12
 				; get an action from the user
 			call	getchar
 				; store the current position
@@ -239,13 +277,13 @@ menuLoop:
 				dec		DWORD [ypos]
 				jmp		minputFound
 			menuLeft:
-				sub		DWORD [xpos], 16
+				dec		DWORD [xpos]
 				jmp		minputFound
 			menuDown:
 				inc		DWORD [ypos]
 				jmp		minputFound
 			menuRight:
-				add		DWORD [xpos], 16
+				inc		DWORD [xpos]
 				jmp		minputFound
 			menuSpace:
 				jmp		minputFound
@@ -257,10 +295,14 @@ menuLoop:
 			mov		eax, 50
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
+			
+			push	ebx
+			push	DWORD [ebp + 8]
 			call	checkCharMenu
 
 		jmp		menu_loop
 		menu_loop_end:
+		mov		DWORD [menuEnd], 0
 		push	clear_screen_code
 		call	printf
 		add		esp, 4
@@ -369,10 +411,14 @@ render:
 				jne		print_board
 						;retrieve eax
 					pop		eax
+					cmp		edx, mainMenu2
+					je		menuPrint
 					cmp		edx, mainMenu
 					jne		printPlayer
+					menuPrint:
 							;if printing the menu, do this
 						lea		edi, [pressPlateColor]
+						mov		DWORD [lastColor], 3
 						mov		DWORD [colorCode], 3
 						push	'>'
 						jmp		somewhere
@@ -404,8 +450,11 @@ render:
 				pop		eax
 					;render the character
 				push	edx
+				cmp		edx, mainMenu2
+				je		isMenuRender
 				cmp		edx, mainMenu
 				jne		isGameRender
+				isMenuRender:
 						;if rendering menu, do this
 					call	mcharRender
 					pop		edx
@@ -418,15 +467,20 @@ render:
 				print_end:
 					;if printing the menu, and if a menu option was just printed,
 					;ensure that the rest of the option is the same color
+				cmp		edx, mainMenu2
+				je		fuck
 				cmp		edx, mainMenu
 				jne		mprint_end
+				fuck:	
+					push	edx
+					add		edx, eax
 					cmp		DWORD [colorCode], 3
 					jne		notOpt
 						mov		esi, 0
 						SkipLoopTop:
-						cmp		esi, 5
+						cmp		BYTE [edx + esi + 1], ' '
 						je		skipLoopEnd
-							mov		bl, BYTE [mainMenu + eax + esi + 1]
+							mov		bl, BYTE [edx + esi + 1]
 							mov		BYTE [frameBuffer + ecx], bl
 							inc		ecx
 							inc		DWORD [ebp - 8]
@@ -434,6 +488,7 @@ render:
 						jmp		SkipLoopTop
 						skipLoopEnd:
 					notOpt:
+					pop		edx
 				mprint_end:	
 			inc		DWORD [ebp - 8]
 			jmp		x_loop_start
@@ -459,13 +514,13 @@ mcharRender:
 	push	ebp
 	mov		ebp, esp
 			mov		DWORD [colorCode], 101
-			cmp		BYTE [mainMenu + eax], ' '
+			cmp		BYTE [edx + eax], ' '
 			je		mSpace
-			cmp		BYTE [mainMenu + eax], '-'
+			cmp		BYTE [edx + eax], '-'
 			je		isBorder
-			cmp		BYTE [mainMenu + eax], '|'
+			cmp		BYTE [edx + eax], '|'
 			je		isBorder
-			cmp		BYTE [mainMenu + eax], ')'
+			cmp		BYTE [edx + eax], ')'
 			je		menuOpt
 			jmp		notBorder
 			mSpace:
@@ -505,32 +560,128 @@ mcharRender:
 
 checkCharMenu:
 	push	ebp
-	mov		ebp, esp
+	mov		ebp, esp	
+		mov		ebx, DWORD [ebp + 8]
+		
 		cmp		DWORD [xpos], esi
 		jne		checkMove
 		cmp		DWORD [ypos], edi
 		jne		checkMove
-			cmp		DWORD [xpos], 30
-			jne		notClose
-				inc		DWORD [menuEnd]
-				jmp		moveCursor
-			notClose:
-			cmp		DWORD [xpos], 14
-			jne		notGame
-				push	DWORD [xpos]
-				push	DWORD [ypos]
-				call 	gameloop
-				pop		DWORD [ypos]
-				pop		DWORD [xpos]
-				jmp		moveCursor
-			notGame:
+			cmp		ebx, mainMenu
+			jne		notMain1
+				cmp		DWORD [xpos], 30
+				jne		notClose
+					inc		DWORD [menuEnd]
+					jmp		moveCursor
+				notClose:
+				cmp		DWORD [xpos], 14
+				jne		notGame
+					help:
+					push	DWORD [xpos]
+					push	DWORD [ypos]
+
+					push	8
+					push	5
+					push	mainMenu2
+					call 	menuLoop
+					add		esp, 12
+
+					pop		DWORD [ypos]
+					pop		DWOrD [xpos]
+					jmp		moveCursor
+				notGame:
+				jmp		checkMove
+			notMain1:
+				cmp		DWORD [xpos], 5
+				jne		waiting
+				cmp		DWORD [ypos], 8
+				jne 	waiting
+					heee:
+					push	DWORD [xpos]
+					push	DWORD [ypos]
+					call	gameloop
+					pop		DWORD [ypos]
+					pop		DWORD [xpos]
+					jmp		moveCursor
+				waiting:
+				cmp		DWORD [xpos], 21
+				jne		rawr
+				cmp		DWORD [ypos], 18
+				jne		rawr
+					inc		DWORD [menuEnd]
+					jmp		moveCursor
+				rawr:
+				jmp		checkMove
 		checkMove:
-		cmp		BYTE [mainMenu + eax], ')'
+		
+		cmp		BYTE [ebx + eax], ')'
 		jne		noMoveCursor
 			jmp		moveCursor
 		noMoveCursor:
-		mov		DWORD [xpos], esi
-		mov		DWORD [ypos], edi
+			mov		edx, 0
+			add		ebx, eax
+				;If moving up or down, seek through the arry appropriately to find 
+				;an acceptable cursor location
+			cmp		DWORD [ebp + 12], 'w'
+			je		walkBackTop
+			cmp		DWORD [ebp + 12], 's'
+			jne		notUpDown
+			walkBackTop:
+					;seek eiither left or right edge, depending on whether
+					;up or down was inputed.
+				seekEdge:
+				cmp		BYTE [ebx + edx], '|'
+				je		seekEdgeBottom
+					cmp		BYTE [ebx + edx], ')'
+					jne		seekEdgeOpt
+						add		DWORD [xpos], edx
+						jmp		moveCursor
+					seekEdgeOpt:
+				cmp		DWORD [ebp + 12], 's'
+				jne		seekEdgeRight
+					dec		edx
+					jmp		seekEdge
+				seekEdgeRight:
+					inc		edx
+					jmp		seekEdge
+				seekEdgeBottom:
+					;seek null at beginning or end of array, edpending on whether 
+					;up or down was inputed.
+				mov		edx, 0
+				seekEnd:
+				cmp		BYTE [ebx + edx], 0
+				je		bottomRee
+					cmp		BYTE [ebx + edx], ')'
+					jne		seekEndOpt
+						add		DWORD [xpos], edx
+						jmp		moveCursor
+					seekEndOpt:
+				cmp		DWORD [ebp + 12], 's'
+				jne		seekLeft
+					inc		edx
+					jmp		seekEnd
+				seekLeft:
+					dec		edx
+					jmp		seekEnd
+				seekEndBottom:
+			notUpDown:
+			cmp		BYTE [ebx + edx], '|'
+			je		bottomRee
+				cmp		BYTE [ebx + edx], ')'
+				jne		notOption
+					add		DWORD [xpos], edx
+					jmp		moveCursor
+				notOption:
+			cmp		DWORD [ebp + 12], 'a'
+			je		mvLeft
+				inc		edx
+				jmp		notUpDown
+			mvLeft:
+				dec		edx
+				jmp		notUpDown
+			bottomRee:
+			mov		DWORD [xpos], esi
+			mov		DWORD [ypos], edi
 		moveCursor:
 	mov		esp, ebp
 	pop		ebp
