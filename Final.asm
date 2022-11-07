@@ -50,9 +50,9 @@ segment .data
 segment .bss
 
 		; this array stores the current rendered gameboard (HxW)
-	board		resb	300
+	board		resb	320
 		;this array is used to store door characters when they are opened
-	doorLayer	resb	300
+	doorLayer	resb	320
 		; these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
@@ -63,7 +63,6 @@ segment .bss
 	hasKey		resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
-	currentBoard	resd	1
 	frameBuffer	resb	1536
 		;this array tells the checkChar function what the character in front is
 	lastColor	resd	1
@@ -74,8 +73,6 @@ segment .bss
 		;This array stores the names of all the game boards, and is dynamically
 		;filled in loadBoards
 	boardArray	resb	2100
-	STARTX		resd	1
-	STARTY		resd	1
 	spacePressed resd	1
 		;stores the main menu
 	mainMenu	resb	1536
@@ -129,8 +126,6 @@ loadBoards:
 	push	ebp
 	mov		ebp, esp
 		sub		esp, 8
-			; initialize currentBoard
-		mov		DWORD [currentBoard], 0
 			;open the file
 		push	mode_r
 		push	gameBoards
@@ -571,21 +566,22 @@ checkCharMenu:
 			jne		notMain1
 				cmp		DWORD [xpos], 30
 				jne		notClose
+						;if close selected, exit screen
 					inc		DWORD [menuEnd]
 					jmp		moveCursor
 				notClose:
 				cmp		DWORD [xpos], 14
 				jne		notGame
-					help:
+						;save cursor position
 					push	DWORD [xpos]
 					push	DWORD [ypos]
-
+						;enter the level select screen
 					push	8
 					push	5
 					push	mainMenu2
 					call 	menuLoop
 					add		esp, 12
-
+						;retrieve cursor position
 					pop		DWORD [ypos]
 					pop		DWOrD [xpos]
 					jmp		moveCursor
@@ -594,96 +590,101 @@ checkCharMenu:
 			notMain1:
 				cmp		DWORD [ypos], 18
 				jne		rawr
+						;if cancel selected, exit screen
 					inc		DWORD [menuEnd]
 					jmp		moveCursor
 				rawr:
-					mov		eax, DWORD [ypos]
-					sub		eax, 8
-					mov		DWORD [currentBoard], eax
+						;save cursor location for when gameloop ends
+					push	DWORD [xpos]
+					push	DWORD [ypos]
+						;using the cursor location, determine both the level offset 
+						;and the world offset within boardArray					
+					sub		DWORD [ypos], 8
 					mov		eax, DWORD [xpos]
 					sub		eax, 5
 					mov		ecx, 4
 					div		ecx
-					push	DWORD [xpos]
+						;call gameloop
 					push	DWORD [ypos]
 					push	eax
 					call	gameloop
-					add		esp, 4
+					add		esp, 8
+						;retrieve cursor location
 					pop		DWORD [ypos]
 					pop		DWORD [xpos]
+						;reset game state
+					mov		DWORD [gameEnd], 0
 					jmp		moveCursor
 				waiting:
 				jmp		checkMove
 		checkMove:
-		
-		cmp		BYTE [ebx + eax], ')'
-		jne		noMoveCursor
-			jmp		moveCursor
-		noMoveCursor:
-			mov		edx, 0
-			add		ebx, eax
-				;If moving up or down, seek through the arry appropriately to find 
-				;an acceptable cursor location
-			cmp		DWORD [ebp + 12], 'w'
-			je		walkBackTop
-			cmp		DWORD [ebp + 12], 's'
-			jne		notUpDown
-			walkBackTop:
-					;seek eiither left or right edge, depending on whether
-					;up or down was inputed.
-				seekEdge:
-				cmp		BYTE [ebx + edx], '|'
-				je		seekEdgeBottom
-					cmp		BYTE [ebx + edx], ')'
-					jne		seekEdgeOpt
-						add		DWORD [xpos], edx
-						jmp		moveCursor
-					seekEdgeOpt:
-				cmp		DWORD [ebp + 12], 's'
-				jne		seekEdgeRight
-					dec		edx
-					jmp		seekEdge
-				seekEdgeRight:
-					inc		edx
-					jmp		seekEdge
-				seekEdgeBottom:
-					;seek null at beginning or end of array, edpending on whether 
-					;up or down was inputed.
-				mov		edx, 0
-				seekEnd:
-				cmp		BYTE [ebx + edx], 0
-				je		bottomRee
-					cmp		BYTE [ebx + edx], ')'
-					jne		seekEndOpt
-						add		DWORD [xpos], edx
-						jmp		moveCursor
-					seekEndOpt:
-				cmp		DWORD [ebp + 12], 's'
-				jne		seekLeft
-					inc		edx
-					jmp		seekEnd
-				seekLeft:
-					dec		edx
-					jmp		seekEnd
-				seekEndBottom:
-			notUpDown:
+		mov		edx, 0
+			;get cursor offset
+		add		ebx, eax
+			;If moving up or down, seek through the arry appropriately to find 
+			;an acceptable cursor location
+		cmp		DWORD [ebp + 12], 'w'
+		je		walkBackTop
+		cmp		DWORD [ebp + 12], 's'
+		jne		notUpDown
+		walkBackTop:
+				;seek eiither left or right edge, depending on whether
+				;up or down was inputed.
+			seekEdge:
 			cmp		BYTE [ebx + edx], '|'
-			je		bottomRee
+			je		seekEdgeBottom
 				cmp		BYTE [ebx + edx], ')'
-				jne		notOption
+				jne		seekEdgeOpt
 					add		DWORD [xpos], edx
 					jmp		moveCursor
-				notOption:
-			cmp		DWORD [ebp + 12], 'a'
-			je		mvLeft
-				inc		edx
-				jmp		notUpDown
-			mvLeft:
+				seekEdgeOpt:
+			cmp		DWORD [ebp + 12], 's'
+			jne		seekEdgeRight
 				dec		edx
-				jmp		notUpDown
-			bottomRee:
-			mov		DWORD [xpos], esi
-			mov		DWORD [ypos], edi
+				jmp		seekEdge
+			seekEdgeRight:
+				inc		edx
+				jmp		seekEdge
+			seekEdgeBottom:
+				;seek null at beginning or end of array, edpending on whether 
+				;up or down was inputed.
+			mov		edx, 0
+			seekEnd:
+			cmp		BYTE [ebx + edx], 0
+			je		bottomRee
+				cmp		BYTE [ebx + edx], ')'
+				jne		seekEndOpt
+					add		DWORD [xpos], edx
+					jmp		moveCursor
+				seekEndOpt:
+			cmp		DWORD [ebp + 12], 's'
+			jne		seekLeft
+				inc		edx
+				jmp		seekEnd
+			seekLeft:
+				dec		edx
+				jmp		seekEnd
+			seekEndBottom:
+		notUpDown:
+			;if a or d is pressed, scan in the appropriate direction for a wall
+			;if not found, check to see if it's a menu opt. if it isn't, keep checking
+		cmp		BYTE [ebx + edx], '|'
+		je		bottomRee
+			cmp		BYTE [ebx + edx], ')'
+			jne		notOption
+				add		DWORD [xpos], edx
+				jmp		moveCursor
+			notOption:
+		cmp		DWORD [ebp + 12], 'a'
+		je		mvLeft
+			inc		edx
+			jmp		notUpDown
+		mvLeft:
+			dec		edx
+			jmp		notUpDown
+		bottomRee:
+		mov		DWORD [xpos], esi
+		mov		DWORD [ypos], edi
 		moveCursor:
 	mov		esp, ebp
 	pop		ebp
@@ -697,7 +698,7 @@ gameloop:
 		mul		DWORD [ebp + 8]
 		mov		ebx, eax
 		mov		eax, 22
-		mul		DWORD [currentBoard]
+		mul		DWORD [ebp + 12]
 		add		eax, ebx
 			;if the previous board was the last one, close the game
 		cmp		BYTE [boardArray + eax], 0
@@ -714,11 +715,6 @@ gameloop:
 			;these arrays are used later on for managing the interactions between the player and rock
 			;objects with the rest of the game board
 		call	init_arrs
-			; set the player at the proper start position
-		mov		eax, DWORD [STARTX]
-		mov		DWORD [xpos], eax
-		mov		eax, DWORD [STARTY]
-		mov		DWORD [ypos], eax
 		mov		DWORD [displayHint], 1
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [hasKey], 0
@@ -798,14 +794,14 @@ gameloop:
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 			mov		cl, BYTE [board + eax]	
+			push	DWORD [ebp + 12]
 			call	checkCharTest
-
-			cmp		DWORD[currentBoard], edx
+			add		esp, 4
+				;If the level was completed, proceed to the next one
+			cmp		DWORD[ebp + 12], edx
 			jne		GOHERE
-
 		jmp		game_loop
 		game_loop_end:
-
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -813,23 +809,30 @@ gameloop:
 checkCharTest:
 	push	ebp
 	mov		ebp, esp
-		mov		edx, DWORD[currentBoard]
-		cmp		BYTE [checkArr + ecx], ' '
+		mov		edx, DWORD [ebp + 8]
+		cmp		BYTE [board + eax], ' '
 		je		checkDone
-		cmp		BYTE [checkArr + ecx], 'R'
+		cmp		BYTE [board + eax], 'R'
 		je		pRock
-		cmp		BYTE [checkArr + ecx], 'P'
+		cmp		BYTE [board + eax], 'p'
+		je		pRock
+		cmp		BYTE [board + eax], 'P'
 		je		checkDone
-		cmp		BYTE [checkArr + ecx], 'L'
+		cmp		BYTE [board + eax], 'L'
 		je		pLever
-		cmp		BYTE [checkArr + ecx], 'S'
+		cmp		BYTE [board + eax], 'l'
+		je		pLever
+		cmp		BYTE [board + eax], 'S'
 		je		pStairs
-		cmp		BYTE [checkArr + ecx], 'K'
+		cmp		BYTE [board + eax], 'K'
 		je		pKey
-		cmp		BYTE [checkArr + ecx], 'B'
+		cmp		BYTE [board + eax], 'B'
 		je		pButton
-		cmp		BYTE [checkArr + ecx], 'G'
+		cmp		BYTE [board + eax], 'b'
+		je		pButton
+		cmp		BYTE [board + eax], 'G'
 		je		pGem
+		cmp		BYTE [board + eax], 'g'
 		jmp		pDefault
 		pRock:
 			call	pushRock
@@ -843,6 +846,7 @@ checkCharTest:
 			mov		DWORD [leverDoors], 0
 			jmp		pDefault
 		pStairs:
+			waow:
 				; clear the screen and print winstr
 			push	win_str
 			call	printf
@@ -852,7 +856,7 @@ checkCharTest:
 			call	sleep
 			add		esp, 4
 				;inc the board counter
-			inc		DWORD [currentBoard]
+			inc		DWORD [ebp + 8]
 			jmp		checkDone
 		pKey:
 			cmp		BYTE [board + eax], 'K'
@@ -959,8 +963,8 @@ init_board:
 		add		esp, 8
 		mov		DWORD [ebp - 4], eax
 			;load the player's starting position
-		push	STARTY
-		push	STARTX
+		push	ypos
+		push	xpos
 		push	coordString
 		push	DWORD [ebp - 4]
 		call	fscanf
@@ -1066,33 +1070,41 @@ charRender:
 		mov		edx, 0
 			;compare the current byte to the various game objects, then
 			;change the symbol and color accordingly
-		cmp		BYTE [checkArr + ebx], ' '
+		cmp		BYTE [board + eax], ' '
 		je		rSpace
-		cmp		BYTE [checkArr + ebx], 'x'
+		cmp		BYTE [board + eax], 'T'
 		je		rWall
-		cmp		BYTE [checkArr + ebx], 'K'
+		cmp		BYTE [board + eax], 'K'
 		je		rKey
-		cmp		BYTE [checkArr + ebx], 'R'
+		cmp		BYTE [board + eax], 'R'
 		je		rRock
-		cmp		BYTE [checkArr + ebx], 'P'
+		cmp		BYTE [board + eax], 'p'
+		je		rRock
+		cmp		BYTE [board + eax], 'P'
 		je		rPlate
-		cmp		BYTE [checkArr + ebx], 'L'
+		cmp		BYTE [board + eax], 'L'
 		je		rLever
-		cmp		BYTE [checkArr + ebx], '_'
+		cmp		BYTE [board + eax], 'l'
+		je		rLever
+		cmp		BYTE [board + eax], '_'
 		je		rLeverDoor
-		cmp		BYTE [checkArr + ebx], '|'
+		cmp		BYTE [board + eax], '|'
 		je		rPlateDoor
-		cmp		BYTE [checkArr + ebx], 'S'
+		cmp		BYTE [board + eax], 'S'
 		je		rStairs
-		cmp		BYTE [checkArr + ebx], 'B'
+		cmp		BYTE [board + eax], 'B'
 		je		rButton
-		cmp		BYTE [checkArr + ebx], '%'
+		cmp		BYTE [board + eax], 'b'
+		je		rButton
+		cmp		BYTE [board + eax], '%'
 		je		rButtDoor
-		cmp		BYTE [checkArr + ebx], '*'
+		cmp		BYTE [board + eax], '*'
 		je		rGButtDoor
-		cmp		BYTE [checkArr + ebx], 'G'
+		cmp		BYTE [board + eax], 'G'
 		je		rGem
-		cmp		BYTE [checkArr + ebx], '^'
+		cmp		BYTE [board + eax], 'g'
+		je		rGem
+		cmp		BYTE [board + eax], '^'
 		je		rGem
 		jmp		rDefault
 		rSpace:
@@ -1342,101 +1354,15 @@ init_arrs:
 				;is it a space?
 			cmp		al, ' '
 			je		iSpace
-				;is it a rock?
-			cmp		al, 'R'
-			je		isRock
-				;is it a rock on a plate?
-			cmp		al, 'p'
-			je		isRock
 				;is it a plate?
 			cmp		al, 'P'
 			je		isPlate
-				;is it a closed plate door?
-			cmp		al, '|'
-			je		isPlateDoor
-				;is it a lever 1?
-			cmp		al, 'L'
-			je		isLever
-				;is it a lever 2?
-			cmp		al, 'l'
-			je		isLever
-				;is it stairs?
-			cmp		al, 'S'
-			je		isStairs
-				;is it a key?
-			cmp		al, 'K'
-			je		isKey
-				;is it a key door?
-			cmp		al, 'A'
-			je		isKey
-				;is it a closed lever door?
-			cmp		al, '_'
-			je		isLDoor
-				;is it a button?
-			cmp		al, 'B'
-			je		isButton
-				;is it an active button?
-			cmp		al, 'b'
-			je		isButton
-				;is it a closed button door?
-			cmp		al, '%'
-			je		isButtDoor
-				;is it a gem?
-			cmp		al, 'G'
-			je		isGem
-				;is it a gem on a plate?
-			cmp		al, 'g'
-			je		isGem
-				;is it a gem door?
-			cmp		al, '^'
-			je		isGemDoor
-				;is it a gButton door?
-			cmp		al, '*'
-			je		isgButtDoor
-			jmp		defaultOpt
 			iSpace:
-				mov		BYTE [checkArr + eax], ' '
 				mov		BYTE [rockArr + eax], 'x'
-				jmp		charPut
-			isRock:
-				mov		BYTE [checkArr + eax], 'R'
 				jmp		charPut
 			isPlate:
-				mov		BYTE [checkArr + eax], 'P'
 				mov		BYTE [rockArr + eax], 'x'
 				jmp		charPut
-			isPlateDoor:
-				mov		BYTE [checkArr + eax], '|'
-				jmp		charPut
-			isLever:
-				mov		BYTE [checkArr + eax], 'L'
-				jmp		charPut
-			isStairs:
-				mov		BYTE [checkArr + eax], 'S'
-				jmp		charPut
-			isKey:
-				mov		BYTE [checkArr + eax], 'K'
-				jmp		charPut
-			isLDoor:
-				mov		BYTE [checkArr + eax], '_'
-				jmp		charPut
-			isButton:
-				mov		BYTE [checkArr + eax], 'B'
-				jmp		charPut
-			isButtDoor:
-				mov		BYTE [checkArr + eax], '%'
-				jmp		charPut
-			isGem:
-				mov		BYTE [checkArr + eax], 'G'
-				jmp		charPut
-			isGemDoor:
-				mov		BYTE [checkArr + eax], '^'
-				jmp		charPut
-			isgButtDoor:
-				mov		BYTE [checkArr + eax], '*'
-				jmp		charPut
-			defaultOpt:
-				mov		BYTE [checkArr + eax], 'x'
 			charPut:
 		inc		esi
 		jmp		arrLoop
