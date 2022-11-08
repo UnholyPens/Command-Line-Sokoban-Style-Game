@@ -44,7 +44,6 @@ segment .data
 	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
-	possChars			db	"pTSRPA|LKl _Bb%Gg^*",0
 	coordString			db	"%d %d",0
 
 segment .bss
@@ -66,8 +65,6 @@ segment .bss
 	frameBuffer	resb	1536
 		;this array tells the checkChar function what the character in front is
 	lastColor	resd	1
-	checkArr	resb	126
-	rockArr		resb	126
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is dynamically
@@ -714,7 +711,7 @@ gameloop:
 			;initialize the checkArr and rockArr arrays with all the possible board characters
 			;these arrays are used later on for managing the interactions between the player and rock
 			;objects with the rest of the game board
-		call	init_arrs
+		;call	init_arrs
 		mov		DWORD [displayHint], 1
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [hasKey], 0
@@ -794,18 +791,20 @@ gameloop:
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 			mov		cl, BYTE [board + eax]
+				;call checkCharTest, passing it the current board index
 			push	DWORD [ebp + 12]
 			call	checkCharTest
-			pop		DWORD [ebp + 12]
+			add		esp, 4
 				;If the level was completed, proceed to the next one
-			cmp		DWORD[ebp + 12], edx
+			cmp		edx, DWORD [ebp + 12]
 			je		notComplete
-				cmp		DWORD [ebp + 12], 10
+				cmp		edx, 10
 				jne		newLevel
 					inc		DWORd [ebp + 8]
 					mov		DWORD [ebp + 12], 0
 					jmp		GOHERE
 				newLevel:
+					inc		DWORD [ebp + 12]
 					jmp		GOHERE
 			notComplete:
 		jmp		game_loop
@@ -866,7 +865,7 @@ checkCharTest:
 			add		esp, 4
 			pop		edx
 				;inc the board counter
-			inc		DWORD [ebp + 8]
+			inc		edx
 			jmp		checkDone
 		pKey:
 			cmp		BYTE [board + eax], 'K'
@@ -935,9 +934,11 @@ pushRock:
 		moveRock:
 			;Check if the character the rock was pushed into is a valid move
 			;if not, reset the position of the player
-		mov		cl, BYTE [ebx]
-		cmp		BYTE [rockArr + ecx], 'x'
+		cmp		BYTE [ebx], ' '
+		je		canMove
+		cmp		BYTE [ebx], 'P'
 		jne		pathBlocked
+		canMove:
 			cmp		BYTE [board + eax], 'p'
 			je		onPlate
 			mov		BYTE [board + eax], ' '
@@ -1096,44 +1097,52 @@ charRender:
 		je		rLever
 		cmp		BYTE [board + eax], 'l'
 		je		rLever
-		cmp		BYTE [board + eax], '_'
-		je		rLeverDoor
-		cmp		BYTE [board + eax], '|'
-		je		rPlateDoor
 		cmp		BYTE [board + eax], 'S'
 		je		rStairs
 		cmp		BYTE [board + eax], 'B'
 		je		rButton
 		cmp		BYTE [board + eax], 'b'
 		je		rButton
+		cmp		BYTE [board + eax], '_'
+		je		rLeverDoor
+		cmp		BYTE [board + eax], '|'
+		je		rDoor
 		cmp		BYTE [board + eax], '%'
-		je		rButtDoor
+		je		rDoor
 		cmp		BYTE [board + eax], '*'
-		je		rGButtDoor
+		je		rDoor
 		cmp		BYTE [board + eax], 'G'
 		je		rGem
 		cmp		BYTE [board + eax], 'g'
 		je		rGem
 		cmp		BYTE [board + eax], '^'
 		je		rGem
-		jmp		rDefault
+		jmp		rDefault	
+		rDoor:
+			push	ecx
+			push	edx
+			push	DWORD [board + eax]
+			cmp		BYTE [board + eax], '|'
+			jne		boop1
+				push	'P'
+				jmp		woop
+			boop1:
+				push	'b'
+			woop:			
+			call	searchObject
+			add		esp, 8
+			pop		edx
+			pop		ecx
+			jmp		rDefault
 		rSpace:
-			cmp		BYTE [doorLayer + eax], '|'
-			jne		notPlateDoor
-				jmp		rPlateDoor
-			notPlateDoor:
+			cmp		BYTE [doorLayer + eax], ' '
+			jne		isSpace
 			cmp		BYTE [doorLayer + eax], '_'
 			jne		notLeverDoor
 				jmp		rLeverDoor
 			notLeverDoor:
-			cmp		BYTE [doorLayer + eax], '%'
-			jne		notButtonDoor
-				jmp		rButtDoor
-			notButtonDoor:
-			cmp		BYTE [doorLayer + eax], '*'
-			jne		notGButtonDoor
-				jmp		rGButtDoor
-			notGButtonDoor:
+				jmp		rDoor
+			isSpace:
 			jmp		redundantColor
 		rWall:
 			mov		DWORD [colorCode], 0
@@ -1153,7 +1162,7 @@ charRender:
 			jmp		rDefault
 		rLever:
 			mov		DWORD [colorCode], 4
-			cmp	DWORD [leverDoors], 0
+			cmp		DWORD [leverDoors], 0
 			jne		isActive2
 				mov		BYTE [board + eax], 'L'
 				mov		bl, 'L'
@@ -1167,7 +1176,7 @@ charRender:
 			cmp		DWORD [leverDoors], 0
 			je		lDoorOpen
 				;if leverdoors is 1, open lever doors
-				cmp		BYTE [board + eax], '_'
+				cmp		BYTE [board + eax], '#'
 				jne		lDoorLayer	
 					call	layerSwap
 				lDoorLayer:
@@ -1181,89 +1190,6 @@ charRender:
 			nlDoorLayer:
 			mov		bl, '#'
 			jmp		rDefault
-		rPlateDoor:
-			mov		DWORD [colorCode], 3
-			mov		edi, 0
-			plateLoop:
-			cmp		edi, 300
-			je		noPlates
-				cmp		BYTE [board + edi], 'P'
-				jne		checkPlates
-					;if a plate is found, close the plate doors
-					cmp		BYTE [board + eax], '|'
-					je		npDoorLayer	
-						call	layerSwap
-					npDoorLayer:
-					mov		bl, '#'
-					jmp		rDefault
-				checkPlates:
-			inc		edi
-			jmp		plateLoop
-				;if no plates are found, open plate doors
-			noPlates:
-				cmp		BYTE [board + eax], '|'
-				jne		pDoorLayer	
-					call	layerSwap
-				pDoorLayer:
-				mov		bl, ' '
-				jmp		rDefault
-			;Button Door
-		rButtDoor:
-			mov		DWORD [colorCode], 7
-			mov		edi, 0
-				;check the board layer for an inactive button
-			testLoop:
-			cmp		edi, 300
-			je		testPassed
-				cmp		BYTE [board + edi], 'b'
-				jne		checkActive
-					;if a button is found, close the button doors
-					cmp		BYTE [board + eax], '%'
-					je		nbDoorLayer	
-						call	layerSwap
-					nbDoorLayer:
-					mov		bl, '#'
-					jmp		rDefault
-				checkActive:
-			inc		edi
-			jmp		testLoop
-				;if a button is not found, open the button doors
-			testPassed:
-				cmp		BYTE [board + eax], '%'
-				jne		bDoorLayer	
-					call	layerSwap
-				bDoorLayer:
-				mov		bl, ' '
-				jmp		rDefault
-			;Grey Button Door
-		rGButtDoor:
-			mov		DWORD [colorCode], 8
-			mov		edx, 300
-			mov		edi, 0
-				;check the board layer for an inactive button
-			gtestLoop:
-			cmp		edi, edx
-			je		gtestFailed
-				cmp		BYTE [board + edi], 'b'
-				jne		gcheckActive
-					;if a button is found, open the grey doors
-					cmp		BYTE [board + eax], '*'
-					jne		gbDoorLayer	
-						call	layerSwap
-					gbDoorLayer:
-					mov		bl, ' '
-					jmp		rDefault
-				gcheckActive:
-			inc		edi
-			jmp		gtestLoop
-				;if a button is not found, close the grey doors
-			gtestFailed:
-				cmp		BYTE [board + eax], '*'
-				je		ngbDoorLayer	
-					call	layerSwap
-				ngbDoorLayer:
-				mov		bl, '#'
-				jmp		rDefault
 			;stairs
 		rStairs:
 			mov		DWORD [colorCode], 6
@@ -1348,35 +1274,65 @@ charRender:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
-init_arrs:
+	
+searchObject:
 	push	ebp
 	mov		ebp, esp
-		mov		esi, 0
-		mov		eax, 0
-		arrLoop:
-			;loop through the board characters, making note of every one we come across
-		cmp		BYTE [possChars + esi], 0
-		je		endArrLoop
-				;if the character has special interractions, make note of it
-				;otherwise, make checkArr[pos] == 'X'
-			mov		al, BYTE [possChars + esi]
-				;is it a space?
-			cmp		al, ' '
-			je		iSpace
-				;is it a plate?
-			cmp		al, 'P'
-			je		isPlate
-			iSpace:
-				mov		BYTE [rockArr + eax], 'x'
-				jmp		charPut
-			isPlate:
-				mov		BYTE [rockArr + eax], 'x'
-				jmp		charPut
-			charPut:
-		inc		esi
-		jmp		arrLoop
-		endArrLoop:
+
+		mov		ecx, DWORD [ebp + 8]
+		mov		dl, BYTE [ebp + 12]
+
+		mov		edi, 0
+			;check the board layer for the repsective object
+		testLoop:
+		cmp		edi, 320
+		je		testPassed
+			cmp		BYTE [board + edi], cl
+			jne		checkActive
+				die:
+				;if a button is found, close the button doors
+				cmp		BYTE [board + eax], dl
+				je		oohh
+				cmp		dl, '*'
+				jmp		booo
+					whelp:	
+					push	edx
+					call	layerSwap
+					pop		edx
+					jmp		booo
+				oohh:
+				cmp		dl, '*'
+				je		whelp
+				booo:
+				cmp		dl, '*'
+				jne		notGrey1
+					mov		bl, ' '
+					jmp		wooooo
+				notGrey1:	
+					mov		bl, '#'
+					jmp		wooooo
+			checkActive:
+		inc		edi
+		jmp		testLoop
+			;if a button is not found, open the button doors
+		testPassed:
+			cmp		BYTE [board + eax], dl
+			jne		doorLayer1
+				plswork2:
+				push	edx
+				call	layerSwap
+				pop		edx
+			doorLayer1:
+			cmp		BYTE [doorLayer + eax], '*'
+			je		plswork2
+			cmp		dl, '*'
+			jne		notGrey2
+				mov		bl, '#'
+				jmp		wooooo
+			notGrey2:
+				mov		bl, ' '
+				jmp		wooooo
+		wooooo:
 	mov		esp, ebp
 	pop		ebp
 	ret

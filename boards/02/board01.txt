@@ -2,7 +2,7 @@
 If you're seeing this, you have successfully implemented world and level selection. 
 Good job!
 
-TTTTTTTTTTTTTTTTTTTT
+*BTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
