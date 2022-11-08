@@ -793,13 +793,21 @@ gameloop:
 			mov		eax, GWIDTH
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
-			mov		cl, BYTE [board + eax]	
+			mov		cl, BYTE [board + eax]
 			push	DWORD [ebp + 12]
 			call	checkCharTest
-			add		esp, 4
+			pop		DWORD [ebp + 12]
 				;If the level was completed, proceed to the next one
 			cmp		DWORD[ebp + 12], edx
-			jne		GOHERE
+			je		notComplete
+				cmp		DWORD [ebp + 12], 10
+				jne		newLevel
+					inc		DWORd [ebp + 8]
+					mov		DWORD [ebp + 12], 0
+					jmp		GOHERE
+				newLevel:
+					jmp		GOHERE
+			notComplete:
 		jmp		game_loop
 		game_loop_end:
 	mov		esp, ebp
@@ -847,6 +855,7 @@ checkCharTest:
 			jmp		pDefault
 		pStairs:
 			waow:
+			push	edx
 				; clear the screen and print winstr
 			push	win_str
 			call	printf
@@ -855,6 +864,7 @@ checkCharTest:
 			push	2
 			call	sleep
 			add		esp, 4
+			pop		edx
 				;inc the board counter
 			inc		DWORD [ebp + 8]
 			jmp		checkDone
