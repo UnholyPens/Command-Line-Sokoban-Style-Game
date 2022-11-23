@@ -9,7 +9,7 @@ TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TT     T    T     TT
 TT     T    T     TT
-TT b   *  B    S  TT
+TT b   *  B %  S  TT
 TT     T    T     TT
 TT     T    T     TT
 TTTTTTTTTTTTTTTTTTTT

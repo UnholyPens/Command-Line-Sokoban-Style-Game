@@ -1119,29 +1119,28 @@ charRender:
 		je		rGem
 		jmp		rDefault	
 		rDoor:
-			push	ecx
-			push	edx
 			push	DWORD [board + eax]
-			cmp		BYTE [board + eax], '|'
+			guesswhat:
+			cmp		BYTE [ebp - 4], '|'
 			jne		boop1
 				push	'P'
 				jmp		woop
 			boop1:
 				push	'b'
 			woop:			
-			call	searchObject
-			add		esp, 8
-			pop		edx
-			pop		ecx
+				call	searchObject
+				add		esp, 8
 			jmp		rDefault
 		rSpace:
-			cmp		BYTE [doorLayer + eax], ' '
-			jne		isSpace
-			cmp		BYTE [doorLayer + eax], '_'
-			jne		notLeverDoor
-				jmp		rLeverDoor
-			notLeverDoor:
-				jmp		rDoor
+			cmp		BYTE [doorLayer + eax], 0
+			je		isSpace
+				notPlateDoor:
+				cmp		BYTE [doorLayer + eax], '_'
+				jne		notLeverDoor
+					jmp		rLeverDoor
+				notLeverDoor:
+					push	DWORD [doorLayer + eax]
+					jmp		guesswhat
 			isSpace:
 			jmp		redundantColor
 		rWall:
@@ -1278,6 +1277,8 @@ charRender:
 searchObject:
 	push	ebp
 	mov		ebp, esp
+		push	ecx
+		push	edx
 
 		mov		ecx, DWORD [ebp + 8]
 		mov		dl, BYTE [ebp + 12]
@@ -1294,7 +1295,7 @@ searchObject:
 				cmp		BYTE [board + eax], dl
 				je		oohh
 				cmp		dl, '*'
-				jmp		booo
+				je		booo
 					whelp:	
 					push	edx
 					call	layerSwap
@@ -1333,6 +1334,8 @@ searchObject:
 				mov		bl, ' '
 				jmp		wooooo
 		wooooo:
+		pop		edx
+		pop		ecx
 	mov		esp, ebp
 	pop		ebp
 	ret
