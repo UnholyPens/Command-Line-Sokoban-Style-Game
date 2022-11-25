@@ -231,12 +231,11 @@ menuLoop:
 	push	ebp
 	mov		ebp, esp
 
-		mov		eax, DWORD [ebp + 12]
-		mov		DWORD [xpos], eax
-		mov		eax, DWORD [ebp + 16]
-		mov		DWORD [ypos], eax
+		push	DWORD [ebp + 12]
+		pop		DWORD [xpos]
+		push	DWORD [ebp + 16]
+		pop		DWORD [ypos]
 		mov		DWORD [menuEnd], 0
-
 		menu_loop:
 			cmp		DWORD [menuEnd], 1
 			je		menu_loop_end
@@ -291,6 +290,7 @@ menuLoop:
 			push	ebx
 			push	DWORD [ebp + 8]
 			call	checkCharMenu
+			add		esp, 8
 
 		jmp		menu_loop
 		menu_loop_end:
@@ -314,10 +314,8 @@ render:
 		call	printf
 		add		esp, 4
 			;if rendering game board, display hint text
-		mov		edx, DWORD [ebp + 16]
-			;save the board value
-		push	edx
-		cmp		edx, board
+		mov		ebx, DWORD [ebp + 16]
+		cmp		ebx, board
 		jne		renMenu
 				;add color
 			push	helpStrColor
@@ -330,24 +328,25 @@ render:
 				call	printf
 				add		esp, 4
 					;after printing the spacer, print the hint text
-				mov		ebx, 0
+				mov		esi, 0
 				hintLoopTop:
-				cmp		ebx, 384
+				cmp		esi, 384
 				je		hintLoopDone
-					lea		ecx, [hintStr + ebx]
+					lea		ecx, [hintStr + esi]
 					push	ecx
 					call	printf
 					add		esp, 4
 					push	hintCarriage
 					call	printf
 					add		esp, 4
-				add		ebx, 128
+				add		esi, 128
 				jmp		hintLoopTop
 				hintLoopDone:
 					;print another spacer
 				push	hintNL
 				call	printf
 				add		esp, 4
+				mov		DWORD [displayHint], 0
 				jmp		hintShown
 			noHint:
 					;if displayHint is 0, just display blank space
@@ -361,8 +360,6 @@ render:
 			call	printf
 			add		esp, 8
 		renMenu:
-			;retrieve the board information
-		pop		edx
 		mov		DWORD [lastColor], 100
 			;initialize frame buffer index
 		mov		ecx, 0
@@ -380,18 +377,10 @@ render:
 			mov		eax, DWORD [ebp + 12]
 			cmp		DWORD [ebp - 8], eax
 			je 		x_loop_end
-					;Save board information
-				push	edx
 					;retrieve the next board character to be printed
-				mov		eax, DWORD [ebp - 4]
-				mov		ebx, DWORD [ebp + 12]
-				mul		ebx
+				mul		DWORD [ebp - 4]
 				add		eax, DWORD [ebp - 8]
-				mov		ebx, 0
-					;retrieve board information
-				pop		edx
-					;move the to-be-printed byte into bl
-				mov		bl, BYTE [edx + eax]
+				mov		dl, BYTE [ebx + eax]
 					; check if (xpos,ypos)=(x,y)
 					;save the value of eax
 				push	eax
@@ -403,9 +392,9 @@ render:
 				jne		print_board
 						;retrieve eax
 					pop		eax
-					cmp		edx, mainMenu2
+					cmp		ebx, mainMenu2
 					je		menuPrint
-					cmp		edx, mainMenu
+					cmp		ebx, mainMenu
 					jne		printPlayer
 					menuPrint:
 							;if printing the menu, do this
@@ -426,61 +415,62 @@ render:
 					selectColorLoop:
 					cmp		BYTE [edi + esi], 0
 					je		endSelectColorLoop
-						mov		bl, BYTE [edi + esi]
-						mov		BYTE [frameBuffer + ecx], bl
+						mov		dl, BYTE [edi + esi]
+						mov		BYTE [frameBuffer + ecx], dl
 						inc		ecx
 					inc		esi
 					jmp		selectColorLoop
 					endSelectColorLoop:
 						;pop off the character pushed to the stack earlier,
 						;then add it to the frame buffer
-					pop		ebx
-					mov		BYTE [frameBuffer + ecx], bl
+					pop		edx
+					mov		BYTE [frameBuffer + ecx], dl
 					inc		ecx
 					jmp		print_end
 				print_board:
 				pop		eax
+				fwag:
 					;render the character
-				push	edx
-				cmp		edx, mainMenu2
+				push	ebx
+				cmp		ebx, mainMenu2
 				je		isMenuRender
-				cmp		edx, mainMenu
+				cmp		ebx, mainMenu
 				jne		isGameRender
 				isMenuRender:
 						;if rendering menu, do this
 					call	mcharRender
-					pop		edx
+					pop		ebx
 					jmp		print_end
 				isGameRender:
 						;if rendering game board, do this	
 					call	charRender
-					pop		edx
+					pop		ebx
 					jmp		print_end
 				print_end:
 					;if printing the menu, and if a menu option was just printed,
 					;ensure that the rest of the option is the same color
-				cmp		edx, mainMenu2
+				cmp		ebx, mainMenu2
 				je		fuck
-				cmp		edx, mainMenu
+				cmp		ebx, mainMenu
 				jne		mprint_end
 				fuck:	
-					push	edx
-					add		edx, eax
+					push	ebx
+					add		ebx, eax
 					cmp		DWORD [colorCode], 3
 					jne		notOpt
 						mov		esi, 0
 						SkipLoopTop:
-						cmp		BYTE [edx + esi + 1], ' '
+						cmp		BYTE [ebx + esi + 1], ' '
 						je		skipLoopEnd
-							mov		bl, BYTE [edx + esi + 1]
-							mov		BYTE [frameBuffer + ecx], bl
+							mov		dl, BYTE [ebx + esi + 1]
+							mov		BYTE [frameBuffer + ecx], dl
 							inc		ecx
 							inc		DWORD [ebp - 8]
 						inc		esi
 						jmp		SkipLoopTop
 						skipLoopEnd:
 					notOpt:
-					pop		edx
+					pop		ebx
 				mprint_end:	
 			inc		DWORD [ebp - 8]
 			jmp		x_loop_start
@@ -506,45 +496,31 @@ mcharRender:
 	push	ebp
 	mov		ebp, esp
 			mov		DWORD [colorCode], 101
-			cmp		BYTE [edx + eax], ' '
+			cmp		BYTE [ebx + eax], ' '
 			je		mSpace
-			cmp		BYTE [edx + eax], '-'
+			cmp		BYTE [ebx + eax], '-'
 			je		isBorder
-			cmp		BYTE [edx + eax], '|'
+			cmp		BYTE [ebx + eax], '|'
 			je		isBorder
-			cmp		BYTE [edx + eax], ')'
+			cmp		BYTE [ebx + eax], ')'
 			je		menuOpt
 			jmp		notBorder
 			mSpace:
-				jmp		mredundantColor
+				jmp		mAddChar
 			isBorder:	
 				mov		DWORD [colorCode], 4
 				jmp		foundBorder
 			menuOpt:
 				mov		DWORD [colorCode], 3
-				mov		bl, ' '
+				mov		dl, ' '
 				jmp		foundBorder
 			notBorder:
 			mov		DWORD [colorCode], 7
 			foundBorder:
-			mov		esi, DWORD[colorCode]
-			mov		edi, DWORD[colorCodeArray + esi * 4]
-			cmp		DWORD [lastColor], esi
-			je		mredundantColor
-				mov		esi, 0
-				mcolorLoop:
-				cmp		BYTE [edi + esi], 0
-				je		mendColorLoop
-					mov		dl, BYTE [edi + esi]
-					mov		BYTE [frameBuffer + ecx], dl
-					inc		ecx
-				inc		esi
-				jmp		mcolorLoop
-				mendColorLoop:
-			mov		edx, DWORD [colorCode]
-			mov		DWORD [lastColor], edx
-			mredundantColor:
-			mov		BYTE [frameBuffer + ecx], bl
+			call	colorFunc
+			mAddChar:
+						;load the displayed character into the frame buffer
+			mov		BYTE [frameBuffer + ecx], dl
 			inc		ecx
 	mov		esp, ebp
 	pop		ebp
@@ -708,23 +684,11 @@ gameloop:
 		push	ecx
 		call	init_board
 		add		esp, 4
-			;initialize the checkArr and rockArr arrays with all the possible board characters
-			;these arrays are used later on for managing the interactions between the player and rock
-			;objects with the rest of the game board
-		;call	init_arrs
+			;call	init_arrs
 		mov		DWORD [displayHint], 1
 		mov		DWORD [leverDoors], 0
 		mov		DWORD [hasKey], 0
 		mov		DWORD [gameEnd], 0
-			; the game happens in this loop
-			; the steps are...
-			;   1. render (draw) the current board
-			;   2. get a character from the user
-			;	3. store current xpos,ypos in esi,edi
-			;	4. update xpos,ypos based on character from user
-			;	5. check what's in the buffer (board) at new xpos,ypos
-			;	6. if it's a wall, reset xpos,ypos to saved esi,edi
-			;	7. otherwise, just continue! (xpos,ypos are ok)
 		game_loop:
 			cmp		DWORD [gameEnd], 1
 			je		game_loop_end	
@@ -734,7 +698,6 @@ gameloop:
 			push	GHEIGHT
 			call	render
 			add		esp, 12
-			mov		DWORD [displayHint], 0
 				; get an action from the user
 			testing2:
 			call	getchar
@@ -1078,13 +1041,13 @@ layerSwap:
 charRender:
 	push	ebp
 	mov		ebp, esp
-		mov		edx, 0
+		mov		ebx, 0
 			;compare the current byte to the various game objects, then
 			;change the symbol and color accordingly
-		cmp		BYTE [board + eax], ' '
-		je		rSpace
 		cmp		BYTE [board + eax], 'T'
 		je		rWall
+		cmp		BYTE [board + eax], ' '
+		je		rSpace
 		cmp		BYTE [board + eax], 'K'
 		je		rKey
 		cmp		BYTE [board + eax], 'R'
@@ -1142,19 +1105,19 @@ charRender:
 					push	DWORD [doorLayer + eax]
 					jmp		guesswhat
 			isSpace:
-			jmp		redundantColor
+			jmp		addChar
 		rWall:
 			mov		DWORD [colorCode], 0
 			jmp		rDefault
 		rKey:
 			mov		DWORD [colorCode], 1
-			cmp		bl, 'A'
+			cmp		dl, 'A'
 			jne		rDefault
-				mov		bl, '#'
+				mov		dl, '#'
 				jmp		rDefault
 		rRock:
 			mov		DWORD [colorCode], 2
-			mov		bl, 'R'
+			mov		dl, 'R'
 			jmp		rDefault
 		rPlate:
 			mov		DWORD [colorCode], 3
@@ -1164,11 +1127,11 @@ charRender:
 			cmp		DWORD [leverDoors], 0
 			jne		isActive2
 				mov		BYTE [board + eax], 'L'
-				mov		bl, 'L'
+				mov		dl, 'L'
 				jmp		rDefault
 			isActive2:
 			mov		BYTE [board + eax], 'l'
-			mov		bl, 'l'
+			mov		dl, 'l'
 			jmp		rDefault
 		rLeverDoor:
 			mov		DWORD [colorCode], 4
@@ -1179,7 +1142,7 @@ charRender:
 				jne		lDoorLayer	
 					call	layerSwap
 				lDoorLayer:
-				mov		bl, ' '
+				mov		dl, ' '
 				jmp		rDefault
 			;if leverdoors is 0, close the lever doors
 			lDoorOpen:
@@ -1187,7 +1150,7 @@ charRender:
 			je		nlDoorLayer	
 				call	layerSwap
 			nlDoorLayer:
-			mov		bl, '#'
+			mov		dl, '#'
 			jmp		rDefault
 			;stairs
 		rStairs:
@@ -1198,18 +1161,18 @@ charRender:
 			jmp		rDefault
 		rGem:
 			mov		DWORD [colorCode], 9
-			cmp		bl, 'g'
+			cmp		dl, 'g'
 			jne		notGemPlate
 				mov		DWORD [colorCode], 10
-				mov		bl, 'G'
+				mov		dl, 'G'
 				jmp		rDefault
 			notGemPlate:
-			cmp		bl, '^'
+			cmp		dl, '^'
 			jne		notGemDoor
-				mov		edx, 300
+				mov		ebx, 300
 				mov		edi, 0
 				gemLoop:
-				cmp		edi, edx
+				cmp		edi, ebx
 				je		noGems
 					cmp		BYTE [board + edi], 'G'
 					je		gemsFound
@@ -1221,38 +1184,18 @@ charRender:
 				jmp		gemLoop
 				noGems:
 				mov		BYTE [board + eax], ' '
-				mov		bl, ' '
+				mov		dl, ' '
 				jmp		rDefault
 				gemsFound:
-				mov		bl, '#'
+				mov		dl, '#'
 				jmp		rDefault
 			notGemDoor:
 			jmp	rDefault
 		rDefault:
-			;use the num in colorCode to load the correct code into edi
-		mov		esi, DWORD[colorCode]
-		mov		edi, DWORD[colorCodeArray + esi * 4]
-			;if the character being loaded into the frame buffer isn't the same as the last one,
-			;load each of the bytes for the color code into the frame buffer until we reach a null byte
-		cmp		DWORD [lastColor], esi
-		je		redundantColor
-			mov		esi, 0
-			colorLoop:
-			cmp		BYTE [edi + esi],0
-			je		endColorLoop
-				mov		dl, BYTE [edi + esi]
-				mov		BYTE [frameBuffer + ecx], dl
-				inc		ecx
-			inc		esi
-			jmp		colorLoop
-			endColorLoop:
-		push	eax
-		mov		eax, DWORD [colorCode]
-		mov		DWORD [lastColor], eax
-		pop		eax
-		redundantColor:
+		call	colorFunc
+		addChar:
 			;load the displayed character into the frame buffer
-		mov		BYTE [frameBuffer + ecx], bl
+		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
 			;save the last char that was moved into the buffer 
 			;to prevent redudant color codes from being printed
@@ -1263,8 +1206,8 @@ charRender:
 			resetColorLoop:
 			cmp		BYTE [edi + esi],0
 			je		endResetColorLoop
-				mov		dl, BYTE [edi + esi]
-				mov		BYTE [frameBuffer + ecx], dl
+				mov		bl, BYTE [edi + esi]
+				mov		BYTE [frameBuffer + ecx], bl
 				inc		ecx
 			inc		esi
 			jmp		resetColorLoop
@@ -1278,11 +1221,10 @@ searchObject:
 	push	ebp
 	mov		ebp, esp
 		push	ecx
-		push	edx
+		push	ebx
 
 		mov		ecx, DWORD [ebp + 8]
-		mov		dl, BYTE [ebp + 12]
-
+		mov		bl, BYTE [ebp + 12]
 		mov		edi, 0
 			;check the board layer for the repsective object
 		testLoop:
@@ -1292,50 +1234,77 @@ searchObject:
 			jne		checkActive
 				die:
 				;if a button is found, close the button doors
-				cmp		BYTE [board + eax], dl
+				cmp		BYTE [board + eax], bl
 				je		oohh
-				cmp		dl, '*'
+				cmp		bl, '*'
 				je		booo
 					whelp:	
-					push	edx
+					push	ebx
 					call	layerSwap
-					pop		edx
+					pop		ebx
 					jmp		booo
 				oohh:
-				cmp		dl, '*'
+				cmp		bl, '*'
 				je		whelp
 				booo:
-				cmp		dl, '*'
+				cmp		bl, '*'
 				jne		notGrey1
-					mov		bl, ' '
+					mov		dl, ' '
 					jmp		wooooo
 				notGrey1:	
-					mov		bl, '#'
+					mov		dl, '#'
 					jmp		wooooo
 			checkActive:
 		inc		edi
 		jmp		testLoop
 			;if a button is not found, open the button doors
 		testPassed:
-			cmp		BYTE [board + eax], dl
+			cmp		BYTE [board + eax], bl
 			jne		doorLayer1
 				plswork2:
-				push	edx
+				push	ebx
 				call	layerSwap
-				pop		edx
+				pop		ebx
 			doorLayer1:
 			cmp		BYTE [doorLayer + eax], '*'
 			je		plswork2
-			cmp		dl, '*'
+			cmp		bl, '*'
 			jne		notGrey2
-				mov		bl, '#'
+				mov		dl, '#'
 				jmp		wooooo
 			notGrey2:
-				mov		bl, ' '
+				mov		dl, ' '
 				jmp		wooooo
 		wooooo:
-		pop		edx
+		pop		ebx
 		pop		ecx
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+colorFunc:
+	push	ebp
+	mov		ebp, esp
+		;use the num in colorCode to load the correct code into edi
+		mov		esi, DWORD[colorCode]
+		mov		edi, DWORD[colorCodeArray + esi * 4]
+			;if the character being loaded into the frame buffer isn't the same as the last one,
+			;load each of the bytes for the color code into the frame buffer until we reach a null byte
+		cmp		DWORD [lastColor], esi
+		je		redundantColor
+			mov		esi, 0
+			colorLoop:
+			cmp		BYTE [edi + esi], 0
+			je		endColorLoop
+				mov		bl, BYTE [edi + esi]
+				mov		BYTE [frameBuffer + ecx], bl
+				inc		ecx
+			inc		esi
+			jmp		colorLoop
+			endColorLoop:
+			push	DWORD [colorCode]
+			pop		DWORD [lastColor]
+		redundantColor:
 	mov		esp, ebp
 	pop		ebp
 	ret
