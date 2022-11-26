@@ -100,12 +100,18 @@ main:
 	push	ebp
 	mov		ebp, esp
 			; put the terminal in raw mode so the game works nicely
-
 		call	raw_mode_on
 			;populate boardArray with all the game boards
 			;serves the same purpose as the boards array did
 		call	loadBoards
+		push	mainMenu
+		push	menuBoard
 		call	loadMenu
+		add		esp, 4
+		push	mainMenu2
+		push	menuBoard2
+		call	loadMenu
+		add		esp, 4
 		push	11
 		push	14
 		push	mainMenu
@@ -163,16 +169,17 @@ loadMenu:
 		sub		esp, 8
 			;open the file
 		push	mode_r
-		push	menuBoard
+		push	DWORD [ebp + 8]
 		call	fopen
 		add		esp, 8
 			;free up eax
 		mov		DWORD[ebp - 4], eax
 			;initialize the indexer
 		mov		DWORD [ebp - 8], 0
+		mov		ebx, DWORD [ebp + 12]
 		topMenuLoop:
 		mov		ecx, DWORD [ebp - 8]
-		lea		edx, [mainMenu + ecx]
+		lea		edx, [ebx + ecx]
 		cmp		eax, 0xffffffff
 		je		endMenuLoop
 				;read the line into boardArray
@@ -188,37 +195,6 @@ loadMenu:
 		add		DWORD [ebp - 8], 50
 		jmp		topMenuLoop
 		endMenuLoop:
-			;close the file
-		push	DWORD [ebp - 4]
-		call	fclose
-		add		esp, 4
-
-		push	mode_r
-		push	menuBoard2
-		call	fopen
-		add		esp, 8
-			;free up eax
-		mov		DWORD[ebp - 4], eax
-			;initialize the indexer
-		mov		DWORD [ebp - 8], 0
-		topMenuLoop2:
-		mov		ecx, DWORD [ebp - 8]
-		lea		edx, [mainMenu2 + ecx]
-		cmp		eax, 0xffffffff
-		je		endMenuLoop2
-				;read the line into boardArray
-			push	DWORD [ebp - 4]
-			push	51
-			push	edx
-			call	fgets
-			add		esp, 12
-				; slurp up the newline
-			push	DWORD [ebp - 4]
-			call	fgetc
-			add		esp, 4
-		add		DWORD [ebp - 8], 50
-		jmp		topMenuLoop2
-		endMenuLoop2:
 			;close the file
 		push	DWORD [ebp - 4]
 		call	fclose
@@ -1030,10 +1006,10 @@ init_board:
 layerSwap:
 	push 	ebp
 	mov		ebp, esp
-		mov		bl, BYTE [board + eax]
-		mov		dl, BYTE [doorLayer + eax] 
-		mov		BYTE [board + eax], dl
-		mov		BYTE [doorLayer + eax], bl
+		mov		dl, BYTE [board + eax]
+		mov		bl, BYTE [doorLayer + eax] 
+		mov		BYTE [board + eax], bl
+		mov		BYTE [doorLayer + eax], dl
 	mov		esp, ebp
 	pop 	ebp
 	ret
