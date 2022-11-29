@@ -2,14 +2,14 @@
 Gray doors will open only when the teal doors are shut.
 That is to say, the gray doors will open when at least one of the buttons
 is turned off.
-TTTTTTTTTTTTTTTTTTTT
+*TTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TTTTTTTTTTTTTTTTTTTT
 TT     T    T     TT
 TT     T    T     TT
-TT b   *  B %  S  TT
+TT b   %       S  TT
 TT     T    T     TT
 TT     T    T     TT
 TTTTTTTTTTTTTTTTTTTT

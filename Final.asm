@@ -1208,50 +1208,48 @@ searchObject:
 		je		testPassed
 			cmp		BYTE [board + edi], cl
 			jne		checkActive
-				die:
-				;if a button is found, close the button doors
+				cmp		BYTE [doorLayer + eax], '*'
+				jne		gDoor
 				cmp		BYTE [board + eax], bl
-				je		oohh
+				je		noSwap
 				cmp		bl, '*'
-				je		booo
-					whelp:	
+				je		noSwap
+				gDoor:
 					push	ebx
 					call	layerSwap
 					pop		ebx
-					jmp		booo
-				oohh:
-				cmp		bl, '*'
-				je		whelp
-				booo:
+				noSwap:
 				cmp		bl, '*'
 				jne		notGrey1
 					mov		dl, ' '
-					jmp		wooooo
+					jmp		endSearch
 				notGrey1:	
 					mov		dl, '#'
-					jmp		wooooo
+					jmp		endSearch
 			checkActive:
 		inc		edi
 		jmp		testLoop
 			;if a button is not found, open the button doors
 		testPassed:
+			cmp		BYTE [doorLayer + eax], '*'
+			je		gDoor2
 			cmp		BYTE [board + eax], bl
 			jne		doorLayer1
-				plswork2:
+			cmp		bl, '*'
+			je		doorLayer1
+				gDoor2:
 				push	ebx
 				call	layerSwap
 				pop		ebx
 			doorLayer1:
-			cmp		BYTE [doorLayer + eax], '*'
-			je		plswork2
 			cmp		bl, '*'
 			jne		notGrey2
 				mov		dl, '#'
-				jmp		wooooo
-			notGrey2:
+				jmp		endSearch
+			notGrey2:	
 				mov		dl, ' '
-				jmp		wooooo
-		wooooo:
+				jmp		endSearch
+		endSearch:
 		pop		ebx
 		pop		ecx
 	mov		esp, ebp
