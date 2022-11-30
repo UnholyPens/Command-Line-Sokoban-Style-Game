@@ -63,7 +63,6 @@ segment .bss
 	gameEnd		resd	1
 	menuEnd		resd	1
 	frameBuffer	resb	1536
-		;this array tells the checkChar function what the character in front is
 	lastColor	resd	1
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
@@ -72,8 +71,8 @@ segment .bss
 	boardArray	resb	2100
 	spacePressed resd	1
 		;stores the main menu
-	mainMenu	resb	1536
-	mainMenu2	resb	1536
+	mainMenu	resb	1001
+	mainMenu2	resb	1001
 
 segment .text
 
@@ -203,81 +202,6 @@ loadMenu:
 	pop		ebp
 	ret
 
-menuLoop:
-	push	ebp
-	mov		ebp, esp
-
-		push	DWORD [ebp + 12]
-		pop		DWORD [xpos]
-		push	DWORD [ebp + 16]
-		pop		DWORD [ypos]
-		mov		DWORD [menuEnd], 0
-		menu_loop:
-			cmp		DWORD [menuEnd], 1
-			je		menu_loop_end
-				; draw the game board
-			push	DWORD [ebp + 8]
-			push	50
-			push	21
-			call	render
-			add		esp, 12
-				; get an action from the user
-			call	getchar
-				; store the current position
-				; we will test if the new position is legal
-				; if not, we will restore these
-			mov		esi, DWORD [xpos]
-			mov		edi, DWORD [ypos]
-				; check where to move the player based on input
-			cmp		eax, 'w'
-			je 		menuUp
-			cmp		eax, 'a'
-			je		menuLeft
-			cmp		eax, 's'
-			je		menuDown
-			cmp		eax, 'd'	
-			je		menuRight
-			cmp		eax, 0x20
-			je		menuSpace
-			jmp		menu_loop
-			menuUp:
-				dec		DWORD [ypos]
-				jmp		minputFound
-			menuLeft:
-				dec		DWORD [xpos]
-				jmp		minputFound
-			menuDown:
-				inc		DWORD [ypos]
-				jmp		minputFound
-			menuRight:
-				inc		DWORD [xpos]
-				jmp		minputFound
-			menuSpace:
-				jmp		minputFound
-			minputFound:
-				;save user input
-			mov		ebx, eax
-
-			mov		ecx, 0
-			mov		eax, 50
-			mul		DWORD [ypos]
-			add		eax, DWORD [xpos]
-			
-			push	ebx
-			push	DWORD [ebp + 8]
-			call	checkCharMenu
-			add		esp, 8
-
-		jmp		menu_loop
-		menu_loop_end:
-		mov		DWORD [menuEnd], 0
-		push	clear_screen_code
-		call	printf
-		add		esp, 4
-	mov		esp, ebp
-	pop		ebp
-	ret
-
 render:
 	;has the arguments of character array, width, height
 	push	ebp
@@ -356,18 +280,16 @@ render:
 					;retrieve the next board character to be printed
 				mul		DWORD [ebp - 4]
 				add		eax, DWORD [ebp - 8]
-				mov		dl, BYTE [ebx + eax]
+				
 					; check if (xpos,ypos)=(x,y)
 					;save the value of eax
-				push	eax
-				mov		eax, DWORD [xpos]
-				cmp		eax, DWORD [ebp - 8]
+				mov		edx, DWORD [xpos]
+				cmp		edx, DWORD [ebp - 8]
 				jne		print_board
-				mov		eax, DWORD [ypos]
-				cmp		eax, DWORD [ebp - 4]
+				mov		edx, DWORD [ypos]
+				cmp		edx, DWORD [ebp - 4]
 				jne		print_board
 						;retrieve eax
-					pop		eax
 					cmp		ebx, mainMenu2
 					je		menuPrint
 					cmp		ebx, mainMenu
@@ -404,8 +326,7 @@ render:
 					inc		ecx
 					jmp		print_end
 				print_board:
-				pop		eax
-				fwag:
+				mov		dl, BYTE [ebx + eax]
 					;render the character
 				push	ebx
 				cmp		ebx, mainMenu2
@@ -502,6 +423,260 @@ mcharRender:
 	pop		ebp
 	ret
 
+charRender:
+	push	ebp
+	mov		ebp, esp
+		mov		ebx, 0
+			;compare the current byte to the various game objects, then
+			;change the symbol and color accordingly
+		cmp		BYTE [board + eax], 'T'
+		je		rWall
+		cmp		BYTE [board + eax], ' '
+		je		rSpace
+		cmp		BYTE [board + eax], 'K'
+		je		rKey
+		cmp		BYTE [board + eax], 'R'
+		je		rRock
+		cmp		BYTE [board + eax], 'p'
+		je		rRock
+		cmp		BYTE [board + eax], 'P'
+		je		rPlate
+		cmp		BYTE [board + eax], 'L'
+		je		rLever
+		cmp		BYTE [board + eax], 'l'
+		je		rLever
+		cmp		BYTE [board + eax], 'S'
+		je		rStairs
+		cmp		BYTE [board + eax], 'B'
+		je		rButton
+		cmp		BYTE [board + eax], 'b'
+		je		rButton
+		cmp		BYTE [board + eax], '_'
+		je		rLeverDoor
+		cmp		BYTE [board + eax], '|'
+		je		rDoor
+		cmp		BYTE [board + eax], '%'
+		je		rDoor
+		cmp		BYTE [board + eax], '*'
+		je		rDoor
+		cmp		BYTE [board + eax], 'G'
+		je		rGem
+		cmp		BYTE [board + eax], 'g'
+		je		rGem
+		cmp		BYTE [board + eax], '^'
+		je		rGem
+		jmp		rDefault	
+		rDoor:
+			push	DWORD [board + eax]
+			guesswhat:
+			cmp		BYTE [ebp - 4], '|'
+			jne		boop1
+				push	'P'
+				jmp		woop
+			boop1:
+				push	'b'
+			woop:			
+				call	searchObject
+				add		esp, 8
+			jmp		rDefault
+		rSpace:
+			cmp		BYTE [doorLayer + eax], 0
+			je		isSpace
+				notPlateDoor:
+				cmp		BYTE [doorLayer + eax], '_'
+				jne		notLeverDoor
+					jmp		rLeverDoor
+				notLeverDoor:
+					push	DWORD [doorLayer + eax]
+					jmp		guesswhat
+			isSpace:
+			jmp		addChar
+		rWall:
+			mov		DWORD [colorCode], 0
+			jmp		rDefault
+		rKey:
+			mov		DWORD [colorCode], 1
+			cmp		dl, 'A'
+			jne		rDefault
+				mov		dl, '#'
+				jmp		rDefault
+		rRock:
+			mov		DWORD [colorCode], 2
+			mov		dl, 'R'
+			jmp		rDefault
+		rPlate:
+			mov		DWORD [colorCode], 3
+			jmp		rDefault
+		rLever:
+			mov		DWORD [colorCode], 4
+			cmp		DWORD [leverDoors], 0
+			jne		isActive2
+				mov		BYTE [board + eax], 'L'
+				mov		dl, 'L'
+				jmp		rDefault
+			isActive2:
+			mov		BYTE [board + eax], 'l'
+			mov		dl, 'l'
+			jmp		rDefault
+		rLeverDoor:
+			mov		DWORD [colorCode], 4
+			cmp		DWORD [leverDoors], 0
+			je		lDoorOpen
+				;if leverdoors is 1, open lever doors
+				cmp		BYTE [board + eax], '#'
+				jne		lDoorLayer	
+					call	layerSwap
+				lDoorLayer:
+				mov		dl, ' '
+				jmp		rDefault
+			;if leverdoors is 0, close the lever doors
+			lDoorOpen:
+			cmp		BYTE [board + eax], '_'
+			je		nlDoorLayer	
+				call	layerSwap
+			nlDoorLayer:
+			mov		dl, '#'
+			jmp		rDefault
+			;stairs
+		rStairs:
+			mov		DWORD [colorCode], 6
+			jmp		rDefault
+		rButton:
+			mov		DWORD [colorCode], 7
+			jmp		rDefault
+		rGem:
+			mov		DWORD [colorCode], 9
+			cmp		dl, 'g'
+			jne		notGemPlate
+				mov		DWORD [colorCode], 10
+				mov		dl, 'G'
+				jmp		rDefault
+			notGemPlate:
+			cmp		dl, '^'
+			jne		notGemDoor
+				mov		ebx, 300
+				mov		edi, 0
+				gemLoop:
+				cmp		edi, ebx
+				je		noGems
+					cmp		BYTE [board + edi], 'G'
+					je		gemsFound
+					cmp		BYTE [board + edi], 'g'
+					jne		checkGem
+						jmp		gemsFound
+					checkGem:
+				inc		edi
+				jmp		gemLoop
+				noGems:
+				mov		BYTE [board + eax], ' '
+				mov		dl, ' '
+				jmp		rDefault
+				gemsFound:
+				mov		dl, '#'
+				jmp		rDefault
+			notGemDoor:
+			jmp	rDefault
+		rDefault:
+		call	colorFunc
+		addChar:
+			;load the displayed character into the frame buffer
+		mov		BYTE [frameBuffer + ecx], dl
+		inc		ecx
+			;save the last char that was moved into the buffer 
+			;to prevent redudant color codes from being printed
+		cmp		BYTE [board + eax], 'g'
+		jne		nPlateGem
+			mov		edi, resetColor
+			mov		esi, 0
+			resetColorLoop:
+			cmp		BYTE [edi + esi],0
+			je		endResetColorLoop
+				mov		bl, BYTE [edi + esi]
+				mov		BYTE [frameBuffer + ecx], bl
+				inc		ecx
+			inc		esi
+			jmp		resetColorLoop
+			endResetColorLoop:
+		nPlateGem:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+menuLoop:
+	push	ebp
+	mov		ebp, esp
+
+		push	DWORD [ebp + 12]
+		pop		DWORD [xpos]
+		push	DWORD [ebp + 16]
+		pop		DWORD [ypos]
+		mov		DWORD [menuEnd], 0
+		menu_loop:
+			cmp		DWORD [menuEnd], 1
+			je		menu_loop_end
+				; draw the game board
+			push	DWORD [ebp + 8]
+			push	50
+			push	21
+			call	render
+			add		esp, 12
+				; get an action from the user
+			call	getchar
+				; store the current position
+				; we will test if the new position is legal
+				; if not, we will restore these
+			mov		esi, DWORD [xpos]
+			mov		edi, DWORD [ypos]
+				; check where to move the player based on input
+			cmp		eax, 'w'
+			je 		menuUp
+			cmp		eax, 'a'
+			je		menuLeft
+			cmp		eax, 's'
+			je		menuDown
+			cmp		eax, 'd'	
+			je		menuRight
+			cmp		eax, 0x20
+			je		menuSpace
+			jmp		menu_loop
+			menuUp:
+				dec		DWORD [ypos]
+				jmp		minputFound
+			menuLeft:
+				dec		DWORD [xpos]
+				jmp		minputFound
+			menuDown:
+				inc		DWORD [ypos]
+				jmp		minputFound
+			menuRight:
+				inc		DWORD [xpos]
+				jmp		minputFound
+			menuSpace:
+				jmp		minputFound
+			minputFound:
+				;save user input
+			mov		ebx, eax
+
+			mov		ecx, 0
+			mov		eax, 50
+			mul		DWORD [ypos]
+			add		eax, DWORD [xpos]
+			
+			push	ebx
+			push	DWORD [ebp + 8]
+			call	checkCharMenu
+			add		esp, 8
+
+		jmp		menu_loop
+		menu_loop_end:
+		mov		DWORD [menuEnd], 0
+		push	clear_screen_code
+		call	printf
+		add		esp, 4
+	mov		esp, ebp
+	pop		ebp
+	ret
+
 checkCharMenu:
 	push	ebp
 	mov		ebp, esp	
@@ -562,7 +737,7 @@ checkCharMenu:
 					pop		DWORD [ypos]
 					pop		DWORD [xpos]
 						;reset game state
-					mov		DWORD [gameEnd], 0
+					;mov		DWORD [gameEnd], 0
 					jmp		moveCursor
 				waiting:
 				jmp		checkMove
@@ -721,7 +896,6 @@ gameloop:
 			resetBoard:
 				jmp		GOHERE
 			inputFound:
-				;save user input
 			mov		ebx, eax
 				; take the potential new pos for the player, and see if it's valid
 				; (W * y) + x = pos
@@ -962,7 +1136,6 @@ init_board:
 		jmp		read_loop
 		read_loop_end:
 			;populate the door layer
-		mov		ebx, 0
 		mov		edx, GWIDTH*GHEIGHT
 		mov		edi, 0
 		doorLoop:
@@ -1006,218 +1179,36 @@ init_board:
 layerSwap:
 	push 	ebp
 	mov		ebp, esp
-		mov		dl, BYTE [board + eax]
-		mov		bl, BYTE [doorLayer + eax] 
-		mov		BYTE [board + eax], bl
-		mov		BYTE [doorLayer + eax], dl
+		mov		cl, BYTE [board + eax]
+		mov		dl, BYTE [doorLayer + eax] 
+		mov		BYTE [board + eax], dl
+		mov		BYTE [doorLayer + eax], cl
 	mov		esp, ebp
 	pop 	ebp
-	ret
-
-charRender:
-	push	ebp
-	mov		ebp, esp
-		mov		ebx, 0
-			;compare the current byte to the various game objects, then
-			;change the symbol and color accordingly
-		cmp		BYTE [board + eax], 'T'
-		je		rWall
-		cmp		BYTE [board + eax], ' '
-		je		rSpace
-		cmp		BYTE [board + eax], 'K'
-		je		rKey
-		cmp		BYTE [board + eax], 'R'
-		je		rRock
-		cmp		BYTE [board + eax], 'p'
-		je		rRock
-		cmp		BYTE [board + eax], 'P'
-		je		rPlate
-		cmp		BYTE [board + eax], 'L'
-		je		rLever
-		cmp		BYTE [board + eax], 'l'
-		je		rLever
-		cmp		BYTE [board + eax], 'S'
-		je		rStairs
-		cmp		BYTE [board + eax], 'B'
-		je		rButton
-		cmp		BYTE [board + eax], 'b'
-		je		rButton
-		cmp		BYTE [board + eax], '_'
-		je		rLeverDoor
-		cmp		BYTE [board + eax], '|'
-		je		rDoor
-		cmp		BYTE [board + eax], '%'
-		je		rDoor
-		cmp		BYTE [board + eax], '*'
-		je		rDoor
-		cmp		BYTE [board + eax], 'G'
-		je		rGem
-		cmp		BYTE [board + eax], 'g'
-		je		rGem
-		cmp		BYTE [board + eax], '^'
-		je		rGem
-		jmp		rDefault	
-		rDoor:
-			push	DWORD [board + eax]
-			guesswhat:
-			cmp		BYTE [ebp - 4], '|'
-			jne		boop1
-				push	'P'
-				jmp		woop
-			boop1:
-				push	'b'
-			woop:			
-				call	searchObject
-				add		esp, 8
-			jmp		rDefault
-		rSpace:
-			cmp		BYTE [doorLayer + eax], 0
-			je		isSpace
-				notPlateDoor:
-				cmp		BYTE [doorLayer + eax], '_'
-				jne		notLeverDoor
-					jmp		rLeverDoor
-				notLeverDoor:
-					push	DWORD [doorLayer + eax]
-					jmp		guesswhat
-			isSpace:
-			jmp		addChar
-		rWall:
-			mov		DWORD [colorCode], 0
-			jmp		rDefault
-		rKey:
-			mov		DWORD [colorCode], 1
-			cmp		dl, 'A'
-			jne		rDefault
-				mov		dl, '#'
-				jmp		rDefault
-		rRock:
-			mov		DWORD [colorCode], 2
-			mov		dl, 'R'
-			jmp		rDefault
-		rPlate:
-			mov		DWORD [colorCode], 3
-			jmp		rDefault
-		rLever:
-			mov		DWORD [colorCode], 4
-			cmp		DWORD [leverDoors], 0
-			jne		isActive2
-				mov		BYTE [board + eax], 'L'
-				mov		dl, 'L'
-				jmp		rDefault
-			isActive2:
-			mov		BYTE [board + eax], 'l'
-			mov		dl, 'l'
-			jmp		rDefault
-		rLeverDoor:
-			mov		DWORD [colorCode], 4
-			cmp		DWORD [leverDoors], 0
-			je		lDoorOpen
-				;if leverdoors is 1, open lever doors
-				cmp		BYTE [board + eax], '#'
-				jne		lDoorLayer	
-					call	layerSwap
-				lDoorLayer:
-				mov		dl, ' '
-				jmp		rDefault
-			;if leverdoors is 0, close the lever doors
-			lDoorOpen:
-			cmp		BYTE [board + eax], '_'
-			je		nlDoorLayer	
-				call	layerSwap
-			nlDoorLayer:
-			mov		dl, '#'
-			jmp		rDefault
-			;stairs
-		rStairs:
-			mov		DWORD [colorCode], 6
-			jmp		rDefault
-		rButton:
-			mov		DWORD [colorCode], 7
-			jmp		rDefault
-		rGem:
-			mov		DWORD [colorCode], 9
-			cmp		dl, 'g'
-			jne		notGemPlate
-				mov		DWORD [colorCode], 10
-				mov		dl, 'G'
-				jmp		rDefault
-			notGemPlate:
-			cmp		dl, '^'
-			jne		notGemDoor
-				mov		ebx, 300
-				mov		edi, 0
-				gemLoop:
-				cmp		edi, ebx
-				je		noGems
-					cmp		BYTE [board + edi], 'G'
-					je		gemsFound
-					cmp		BYTE [board + edi], 'g'
-					jne		checkGem
-						jmp		gemsFound
-					checkGem:
-				inc		edi
-				jmp		gemLoop
-				noGems:
-				mov		BYTE [board + eax], ' '
-				mov		dl, ' '
-				jmp		rDefault
-				gemsFound:
-				mov		dl, '#'
-				jmp		rDefault
-			notGemDoor:
-			jmp	rDefault
-		rDefault:
-		call	colorFunc
-		addChar:
-			;load the displayed character into the frame buffer
-		mov		BYTE [frameBuffer + ecx], dl
-		inc		ecx
-			;save the last char that was moved into the buffer 
-			;to prevent redudant color codes from being printed
-		cmp		BYTE [board + eax], 'g'
-		jne		nPlateGem
-			mov		edi, resetColor
-			mov		esi, 0
-			resetColorLoop:
-			cmp		BYTE [edi + esi],0
-			je		endResetColorLoop
-				mov		bl, BYTE [edi + esi]
-				mov		BYTE [frameBuffer + ecx], bl
-				inc		ecx
-			inc		esi
-			jmp		resetColorLoop
-			endResetColorLoop:
-		nPlateGem:
-	mov		esp, ebp
-	pop		ebp
 	ret
 	
 searchObject:
 	push	ebp
 	mov		ebp, esp
 		push	ecx
-		push	ebx
-
-		mov		ecx, DWORD [ebp + 8]
+		mov		edx, DWORD [ebp + 8]
 		mov		bl, BYTE [ebp + 12]
 		mov		edi, 0
 			;check the board layer for the repsective object
 		testLoop:
 		cmp		edi, 320
 		je		testPassed
-			cmp		BYTE [board + edi], cl
+			cmp		BYTE [board + edi], dl
 			jne		checkActive
+				mooo:
 				cmp		BYTE [doorLayer + eax], '*'
-				jne		gDoor
+				je		gDoor
 				cmp		BYTE [board + eax], bl
 				je		noSwap
 				cmp		bl, '*'
 				je		noSwap
 				gDoor:
-					push	ebx
 					call	layerSwap
-					pop		ebx
 				noSwap:
 				cmp		bl, '*'
 				jne		notGrey1
@@ -1238,9 +1229,7 @@ searchObject:
 			cmp		bl, '*'
 			je		doorLayer1
 				gDoor2:
-				push	ebx
 				call	layerSwap
-				pop		ebx
 			doorLayer1:
 			cmp		bl, '*'
 			jne		notGrey2
@@ -1248,9 +1237,7 @@ searchObject:
 				jmp		endSearch
 			notGrey2:	
 				mov		dl, ' '
-				jmp		endSearch
 		endSearch:
-		pop		ebx
 		pop		ecx
 	mov		esp, ebp
 	pop		ebp
