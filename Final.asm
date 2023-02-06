@@ -424,44 +424,43 @@ mcharRender:
 charRender:
 	push	ebp
 	mov		ebp, esp
-		;mov		ebx, 0
 			;compare the current byte to the various game objects, then
 			;change the symbol and color accordingly
-		cmp		BYTE [board + edi], 'T'
+		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
-		cmp		BYTE [board + edi], ' '
+		cmp		BYTE [ebx + edi], ' '
 		je		rSpace
-		cmp		BYTE [board + edi], 'K'
+		cmp		BYTE [ebx + edi], 'K'
 		je		rKey
-		cmp		BYTE [board + edi], 'R'
+		cmp		BYTE [ebx + edi], 'R'
 		je		rRock
-		cmp		BYTE [board + edi], 'p'
+		cmp		BYTE [ebx + edi], 'p'
 		je		rRock
-		cmp		BYTE [board + edi], 'P'
+		cmp		BYTE [ebx + edi], 'P'
 		je		rPlate
-		cmp		BYTE [board + edi], 'L'
+		cmp		BYTE [ebx + edi], 'L'
 		je		rLever
-		cmp		BYTE [board + edi], 'l'
+		cmp		BYTE [ebx + edi], 'l'
 		je		rLever
-		cmp		BYTE [board + edi], 'S'
+		cmp		BYTE [ebx + edi], 'S'
 		je		rStairs
-		cmp		BYTE [board + edi], 'B'
+		cmp		BYTE [ebx + edi], 'B'
 		je		rButton
-		cmp		BYTE [board + edi], 'b'
+		cmp		BYTE [ebx + edi], 'b'
 		je		rButton
-		cmp		BYTE [board + edi], '_'
+		cmp		BYTE [ebx + edi], '_'
 		je		rLeverDoor
-		cmp		BYTE [board + edi], '|'
+		cmp		BYTE [ebx + edi], '|'
 		je		rDoor
-		cmp		BYTE [board + edi], '%'
+		cmp		BYTE [ebx + edi], '%'
 		je		rDoor
-		cmp		BYTE [board + edi], '*'
+		cmp		BYTE [ebx + edi], '*'
 		je		rDoor
-		cmp		BYTE [board + edi], 'G'
+		cmp		BYTE [ebx + edi], 'G'
 		je		rGem
-		cmp		BYTE [board + edi], 'g'
+		cmp		BYTE [ebx + edi], 'g'
 		je		rGem
-		cmp		BYTE [board + edi], '^'
+		cmp		BYTE [ebx + edi], '^'
 		je		rGem
 		jmp		rDefault	
 		rDoor:
@@ -509,11 +508,11 @@ charRender:
 			mov		DWORD [colorCode], 4
 			cmp		DWORD [leverDoors], 0
 			jne		isActive2
-				mov		BYTE [board + edi], 'L'
+				mov		BYTE [ebx + edi], 'L'
 				mov		dl, 'L'
 				jmp		rDefault
 			isActive2:
-			mov		BYTE [board + edi], 'l'
+			mov		BYTE [ebx + edi], 'l'
 			mov		dl, 'l'
 			jmp		rDefault
 		rLeverDoor:
@@ -521,7 +520,7 @@ charRender:
 			cmp		DWORD [leverDoors], 0
 			je		lDoorOpen
 				;if leverdoors is 1, open lever doors
-				cmp		BYTE [board + edi], '#'
+				cmp		BYTE [ebx + edi], '#'
 				jne		lDoorLayer	
 					call	layerSwap
 				lDoorLayer:
@@ -529,7 +528,7 @@ charRender:
 				jmp		rDefault
 			;if leverdoors is 0, close the lever doors
 			lDoorOpen:
-			cmp		BYTE [board + edi], '_'
+			cmp		BYTE [ebx + edi], '_'
 			je		nlDoorLayer	
 				call	layerSwap
 			nlDoorLayer:
@@ -552,7 +551,6 @@ charRender:
 			notGemPlate:
 			cmp		dl, '^'
 			jne		notGemDoor
-				;mov		ebx, 300
 				mov		esi, 0
 				gemLoop:
 				cmp		esi, 300
@@ -566,7 +564,7 @@ charRender:
 				inc		esi
 				jmp		gemLoop
 				noGems:
-				mov		BYTE [board + edi], ' '
+				mov		BYTE [ebx + edi], ' '
 				mov		dl, ' '
 				jmp		rDefault
 				gemsFound:
@@ -582,15 +580,15 @@ charRender:
 		inc		ecx
 			;save the last char that was moved into the buffer 
 			;to prevent redudant color codes from being printed
-		cmp		BYTE [board + edi], 'g'
+		cmp		BYTE [ebx + edi], 'g'
 		jne		nPlateGem
 			mov		edi, resetColor
 			mov		esi, 0
 			resetColorLoop:
 			cmp		BYTE [edi + esi],0
 			je		endResetColorLoop
-				mov		bl, BYTE [edi + esi]
-				mov		BYTE [frameBuffer + ecx], bl
+				mov		al, BYTE [edi + esi]
+				mov		BYTE [frameBuffer + ecx], al
 				inc		ecx
 			inc		esi
 			jmp		resetColorLoop
@@ -1188,7 +1186,7 @@ searchObject:
 	mov		ebp, esp
 		push	ecx
 		mov		edx, DWORD [ebp + 8]
-		mov		bl, BYTE [ebp + 12]
+		mov		al, BYTE [ebp + 12]
 		mov		esi, 0
 			;check the board layer for the repsective object
 		testLoop:
@@ -1199,14 +1197,14 @@ searchObject:
 				mooo:
 				cmp		BYTE [board + edi], '*'
 				je		gDoor
-				cmp		BYTE [board + edi], bl
+				cmp		BYTE [board + edi], al
 				je		noSwap
-				cmp		bl, '*'
+				cmp		al, '*'
 				je		noSwap
 				gDoor:
 					call	layerSwap
 				noSwap:
-				cmp		bl, '*'
+				cmp		al, '*'
 				jne		notGrey1
 					mov		dl, ' '
 					jmp		endSearch
@@ -1220,14 +1218,14 @@ searchObject:
 		testPassed:
 			cmp		BYTE [doorLayer + edi], '*'
 			je		gDoor2
-			cmp		BYTE [board + edi], bl
+			cmp		BYTE [board + edi], al
 			jne		doorLayer1
-			cmp		bl, '*'
+			cmp		al, '*'
 			je		doorLayer1
 				gDoor2:
 				call	layerSwap
 			doorLayer1:
-			cmp		bl, '*'
+			cmp		al, '*'
 			jne		notGrey2
 				mov		dl, '#'
 				jmp		endSearch
