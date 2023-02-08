@@ -886,13 +886,12 @@ gameloop:
 			showHint:
 				mov		DWORD [displayHint], 1
 			inputFound:
+			mov		ecx, eax
 				; take the potential new pos for the player, and see if it's valid
 				; (W * y) + x = pos
-			mov		ecx, 0
 			mov		eax, GWIDTH
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
-			mov		cl, BYTE [board + eax]
 				;call checkCharTest, passing it the current board index
 			push	DWORD [ebp + 12]
 			call	checkCharTest
@@ -1016,35 +1015,34 @@ pushRock:
 	push	ebp
 	mov		ebp, esp
 			;Check which direction the rock is moving
-		cmp		ebx, 'w'
+		cmp		ecx, 'w'
 		je		nextDir1
-		cmp		ebx, 'a'
+		cmp		ecx, 'a'
 		je		nextDir2
-		cmp		ebx, 's'
+		cmp		ecx, 's'
 		je		nextDir3
-		cmp		ebx, 'd'
+		cmp		ecx, 'd'
 		je		nextDir4
 		jmp		rockend
 			;Load the address of the next space in the array 
 			;according to the direction the rock is moivng
 		nextDir1:
-			lea		ebx, [board + eax - GWIDTH]
+			lea		ecx, [board + eax - GWIDTH]
 			jmp		moveRock
 		nextDir2:
-			lea		ebx, [board + eax - 1]
+			lea		ecx, [board + eax - 1]
 			jmp		moveRock
 		nextDir3:
-			lea		ebx, [board + eax + GWIDTH]
+			lea		ecx, [board + eax + GWIDTH]
 			jmp		moveRock
 		nextDir4:
-			lea		ebx, [board + eax + 1]
-			jmp		moveRock
+			lea		ecx, [board + eax + 1]
 		moveRock:
 			;Check if the character the rock was pushed into is a valid move
 			;if not, reset the position of the player
-		cmp		BYTE [ebx], ' '
+		cmp		BYTE [ecx], ' '
 		je		canMove
-		cmp		BYTE [ebx], 'P'
+		cmp		BYTE [ecx], 'P'
 		jne		pathBlocked
 		canMove:
 			cmp		BYTE [board + eax], 'p'
@@ -1054,12 +1052,12 @@ pushRock:
 			onPlate:
 				mov		BYTE [board + eax], 'P'
 			mvNext:
-			cmp		BYTE [ebx], 'P'
+			cmp		BYTE [ecx], 'P'
 			je		plateNext
-			mov		BYTE [ebx], 'R'
+			mov		BYTE [ecx], 'R'
 			jmp		rockend
 			plateNext:
-				mov		BYTE [ebx], 'p'
+				mov		BYTE [ecx], 'p'
 				jmp		rockend
 		pathBlocked:
 		mov		DWORD [xpos], esi
@@ -1136,14 +1134,13 @@ init_board:
 		doorLoop:
 		cmp		edi, edx
 		je		endDoorCheck
-			mov		bl, BYTE [board + edi]
-			cmp		bl, '|'
+			cmp		BYTE [board + edi], '|'
 			je		yesPDoor
-			cmp		bl, '_'
+			cmp		BYTE [board + edi], '_'
 			je		yesLDoor
-			cmp		bl, '%'
+			cmp		BYTE [board + edi], '%'
 			je		yesBDoor
-			cmp		bl, '*'
+			cmp		BYTE [board + edi], '*'
 			je		yesgBDoor
 			mov		BYTE [doorLayer + edi], 0
 			jmp		noDoor
@@ -1158,7 +1155,6 @@ init_board:
 				jmp		noDoor
 			yesgBDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				jmp		noDoor
 			noDoor:
 		inc		edi
 		jmp		doorLoop
@@ -1238,7 +1234,7 @@ searchObject:
 	pop		ebp
 	ret
 
-colorFunc:
+colorFunc:	
 	push	ebp
 	mov		ebp, esp
 		sub		esp, 4
