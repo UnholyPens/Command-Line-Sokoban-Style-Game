@@ -41,7 +41,8 @@ segment .data
 	hintNL				db 10,0
 		;displays num keys
 	key_str				db	"Num keys: %d",10,13,0
-	win_str				db	27,"[2J",27,"[H", "You win!",13,10,0
+	win_str				db	27,"[2J",27,"[H", "Level complete!",13,10,0
+	waitStr				db	"Press Enter to continue.",13,10,0
 		;all the possible characters that can be displayed on the game board
 		;used to determine interactions between the rock and player chars
 	coordString			db	"%d %d",0
@@ -637,28 +638,24 @@ menuLoop:
 			jmp		menu_loop
 			menuUp:
 				dec		DWORD [ypos]
-				jmp		minputFound
+				jmp		menuSpace
 			menuLeft:
 				dec		DWORD [xpos]
-				jmp		minputFound
+				jmp		menuSpace
 			menuDown:
 				inc		DWORD [ypos]
-				jmp		minputFound
+				jmp		menuSpace
 			menuRight:
 				inc		DWORD [xpos]
-				jmp		minputFound
 			menuSpace:
-				jmp		minputFound
-			minputFound:
-				;save user input
-			mov		ebx, eax
 
+			push	eax
+			
 			mov		ecx, 0
 			mov		eax, 50
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 			
-			push	ebx
 			push	DWORD [ebp + 8]
 			call	checkCharMenu
 			add		esp, 8
@@ -872,6 +869,8 @@ gameloop:
 			cmp		eax, 127
 			je		resetBoard
 			jmp		inputFound
+			resetBoard:
+				jmp		GOHERE
 			moveUp:
 				dec		DWORD [ypos]
 				jmp		inputFound
@@ -886,11 +885,7 @@ gameloop:
 				jmp		inputFound
 			showHint:
 				mov		DWORD [displayHint], 1
-				jmp		inputFound
-			resetBoard:
-				jmp		GOHERE
 			inputFound:
-			mov		ebx, eax
 				; take the potential new pos for the player, and see if it's valid
 				; (W * y) + x = pos
 			mov		ecx, 0
@@ -901,13 +896,13 @@ gameloop:
 				;call checkCharTest, passing it the current board index
 			push	DWORD [ebp + 12]
 			call	checkCharTest
-			add		esp, 4
+			pop		DWORD [ebp + 12]
 				;If the level was completed, proceed to the next one
-			cmp		edx, DWORD [ebp + 12]
+			cmp		ebx, DWORD [ebp + 12]
 			je		notComplete
-				cmp		edx, 10
+				cmp		DWORD [ebp + 12], 10
 				jne		newLevel
-					inc		DWORd [ebp + 8]
+					inc		DWORD [ebp + 8]
 					mov		DWORD [ebp + 12], 0
 					jmp		GOHERE
 				newLevel:
@@ -923,7 +918,7 @@ gameloop:
 checkCharTest:
 	push	ebp
 	mov		ebp, esp
-		mov		edx, DWORD [ebp + 8]
+		mov		ebx, DWORD [ebp + 8]
 		cmp		BYTE [board + eax], ' '
 		je		checkDone
 		cmp		BYTE [board + eax], 'R'
@@ -960,8 +955,6 @@ checkCharTest:
 			mov		DWORD [leverDoors], 0
 			jmp		pDefault
 		pStairs:
-			waow:
-			push	edx
 				; clear the screen and print winstr
 			push	win_str
 			call	printf
@@ -970,9 +963,17 @@ checkCharTest:
 			push	2
 			call	sleep
 			add		esp, 4
-			pop		edx
+				;print the waitstr
+			push	waitStr
+			call	printf
+			add		esp, 4
+				;loop until enter is pressed
+			kek:
+			call	getchar
+			cmp		eax, 13
+			jne		kek
 				;inc the board counter
-			inc		edx
+			inc		DWORD [ebp + 8]
 			jmp		checkDone
 		pKey:
 			cmp		BYTE [board + eax], 'K'
