@@ -12,7 +12,6 @@ segment .data
 	playerColor			db	27,"[38;5;173m",0	
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
-
 		;these colors are part of colorCodeArray
 	plateUnderGem		db	27,"[1;48;5;249;38;5;9m",0
 	wallColor			db	27,"[38;5;22m",0
@@ -44,7 +43,6 @@ segment .data
 	coordString			db	"%d %d",0
 
 segment .bss
-
 		; this array stores the current rendered gameboard (HxW)
 	board		resb	320
 		;this array is used to store door characters when they are opened
@@ -54,7 +52,6 @@ segment .bss
 	ypos		resd	1
 		;These variables store various data for rendering
 	colorCode	resd	1
-	leverDoors	resd	1
 	displayHint	resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
@@ -62,9 +59,9 @@ segment .bss
 	lastColor	resd	1
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
-		;This array stores the names of all the game boards, and is dynamically
+		;This array stores the names of all the game boards, and is
 		;filled in loadBoards
-	boardArray	resb	2100
+	boardArray	resb	2200
 	spacePressed resd	1
 		;stores the main menu
 	mainMenu	resb	1001
@@ -73,10 +70,8 @@ segment .bss
 segment .text
 
 	global	main
-
 	extern	raw_mode_on
 	extern 	raw_mode_off
-
 	extern	system
 	extern	getchar
 	extern	printf
@@ -419,7 +414,7 @@ charRender:
 		cmp		BYTE [ebx + edi], 'b'
 		je		rButton
 		cmp		BYTE [ebx + edi], '_'
-		je		rLeverDoor
+		je		rDoor
 		cmp		BYTE [ebx + edi], '|'
 		je		rDoor
 		cmp		BYTE [ebx + edi], '%'
@@ -434,14 +429,19 @@ charRender:
 		je		rGem
 		jmp		rDefault	
 		rDoor:
-			push	DWORD [board + edi]
+			push	DWORD [ebx + edi]
 			guesswhat:
 			cmp		BYTE [ebp - 4], '|'
 			jne		boop1
 				push	'P'
 				jmp		woop
 			boop1:
+			cmp		BYTE [ebp - 4], '%'
+			jne		boop3
 				push	'b'
+				jmp		woop
+			boop3:
+				push	'l'
 			woop:			
 				call	searchObject
 				add		esp, 8
@@ -449,13 +449,8 @@ charRender:
 		rSpace:
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
-				notPlateDoor:
-				cmp		BYTE [doorLayer + edi], '_'
-				jne		notLeverDoor
-					jmp		rLeverDoor
-				notLeverDoor:
-					push	DWORD [doorLayer + edi]
-					jmp		guesswhat
+				push	DWORD [doorLayer + edi]
+				jmp		guesswhat
 			isSpace:
 			jmp		addChar
 		rWall:
@@ -476,33 +471,7 @@ charRender:
 			jmp		rDefault
 		rLever:
 			mov		DWORD [colorCode], 4
-			cmp		DWORD [leverDoors], 0
-			jne		isActive2
-				mov		BYTE [ebx + edi], 'L'
-				mov		dl, 'L'
-				jmp		rDefault
-			isActive2:
-			mov		BYTE [ebx + edi], 'l'
-			mov		dl, 'l'
-			jmp		rDefault
-		rLeverDoor:
-			mov		DWORD [colorCode], 4
-			cmp		DWORD [leverDoors], 0
-			je		lDoorOpen
-				;if leverdoors is 1, open lever doors
-				cmp		BYTE [ebx + edi], '#'
-				jne		lDoorLayer	
-					call	layerSwap
-				lDoorLayer:
-				mov		dl, ' '
-				jmp		rDefault
-			;if leverdoors is 0, close the lever doors
-			lDoorOpen:
-			cmp		BYTE [ebx + edi], '_'
-			je		nlDoorLayer	
-				call	layerSwap
-			nlDoorLayer:
-			mov		dl, '#'
+			mov		dl, BYTE [ebx + edi]
 			jmp		rDefault
 			;stairs
 		rStairs:
@@ -794,7 +763,6 @@ gameloop:
 		add		esp, 4
 			;call	init_arrs
 		mov		DWORD [displayHint], 1
-		mov		DWORD [leverDoors], 0
 		mov		DWORD [gameEnd], 0
 		game_loop:
 			cmp		DWORD [gameEnd], 1
@@ -910,12 +878,12 @@ checkCharTest:
 			call	pushRock
 			jmp		checkDone
 		pLever:
-			cmp	DWORD [leverDoors], 0
-			jne		isActive
-				mov		DWORD [leverDoors], 1
+			cmp		BYTE [board + eax], 'L'
+			jne		noLev
+				mov		BYTE [board + eax], 'l'
 				jmp		pDefault
-			isActive:
-			mov		DWORD [leverDoors], 0
+			noLev:
+			mov		BYTE [board + eax], 'L'
 			jmp		pDefault
 		pStairs:
 				; clear the screen and print winstr
@@ -1155,13 +1123,13 @@ searchObject:
 		testLoop:
 		cmp		esi, 320
 		je		testPassed
-			cmp		BYTE [board + esi], dl
+			cmp		BYTE [ebx + esi], dl
 			jne		checkActive
 				mooo:
-				cmp		BYTE [board + edi], '*'
+				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
-				cmp		BYTE [board + edi], al
-				je		noSwap
+				cmp		BYTE [doorLayer + edi], al
+				jne		noSwap
 				cmp		al, '*'
 				je		noSwap
 				gDoor:
@@ -1181,7 +1149,7 @@ searchObject:
 		testPassed:
 			cmp		BYTE [doorLayer + edi], '*'
 			je		gDoor2
-			cmp		BYTE [board + edi], al
+			cmp		BYTE [ebx + edi], al
 			jne		doorLayer1
 			cmp		al, '*'
 			je		doorLayer1
