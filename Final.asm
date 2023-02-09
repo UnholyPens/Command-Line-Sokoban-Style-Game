@@ -583,12 +583,11 @@ charRender:
 			;to prevent redudant color codes from being printed
 		cmp		BYTE [ebx + edi], 'g'
 		jne		nPlateGem
-			mov		edi, resetColor
 			mov		esi, 0
 			resetColorLoop:
-			cmp		BYTE [edi + esi],0
+			cmp		BYTE [resetColor + esi],0
 			je		endResetColorLoop
-				mov		al, BYTE [edi + esi]
+				mov		al, BYTE [resetColor + esi]
 				mov		BYTE [frameBuffer + ecx], al
 				inc		ecx
 			inc		esi
@@ -679,12 +678,6 @@ checkCharMenu:
 		jne		checkMove
 			cmp		ebx, mainMenu
 			jne		notMain1
-				cmp		DWORD [xpos], 30
-				jne		notClose
-						;if close selected, exit screen
-					inc		DWORD [menuEnd]
-					jmp		moveCursor
-				notClose:
 				cmp		DWORD [xpos], 14
 				jne		notGame
 						;save cursor position
@@ -701,6 +694,10 @@ checkCharMenu:
 					pop		DWOrD [xpos]
 					jmp		moveCursor
 				notGame:
+						;if close selected, exit screen
+					inc		DWORD [menuEnd]
+					jmp		moveCursor
+				notClose:
 				jmp		checkMove
 			notMain1:
 				cmp		DWORD [ypos], 18
@@ -841,7 +838,6 @@ gameloop:
 			call	render
 			add		esp, 12
 				; get an action from the user
-			testing2:
 			call	getchar
 				; store the current position
 				; we will test if the new position is legal
