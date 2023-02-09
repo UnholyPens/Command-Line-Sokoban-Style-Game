@@ -95,6 +95,7 @@ segment .text
 	extern	fscanf
 	extern	fclose
 	extern 	sleep
+	extern	strlen
 
 main:
 	push	ebp
@@ -117,7 +118,6 @@ main:
 		push	mainMenu
 		call	menuLoop
 		add		esp, 12
-
 			; restore old terminal functionality
 		call raw_mode_off
 	mov		eax, 0
@@ -223,29 +223,11 @@ render:
 			push	helpStrColor
 			call	printf
 			add		esp, 4
-				; print the help information
+				; print the help information if it needs to be
 			cmp		DWORD [displayHint], 0
 			je		noHint
-				push	hintNL
-				call	printf
-				add		esp, 4
-					;after printing the spacer, print the hint text
-				mov		esi, 0
-				hintLoopTop:
-				cmp		esi, 384
-				je		hintLoopDone
-					lea		ecx, [hintStr + esi]
-					push	ecx
-					call	printf
-					add		esp, 4
-					push	hintCarriage
-					call	printf
-					add		esp, 4
-				add		esi, 128
-				jmp		hintLoopTop
-				hintLoopDone:
-					;print another spacer
-				push	hintNL
+				lea		ecx, [hintStr]
+				push	ecx
 				call	printf
 				add		esp, 4
 				mov		DWORD [displayHint], 0
@@ -1088,8 +1070,11 @@ init_board:
 		add		esp, 4
 			;load in the hint string
 		mov		ebx, 0
+		mov		esi, 0
+		mov		BYTE [hintStr], 10
+		inc		ebx
 		topInitLoop:
-		cmp		ebx, 384
+		cmp		esi, 3
 		je		endInitLoop
 			lea		eax, [hintStr + ebx]
 			push	DWORD [ebp - 4]
@@ -1097,9 +1082,18 @@ init_board:
 			push	eax
 			call	fgets
 			add		esp, 12
-		add		ebx, 128
+				;get the next offset and put it in ebx
+			push	eax
+			call	strlen
+			add		esp, 4
+			add		ebx, eax
+				;add a carriage return
+			mov		BYTE [hintStr + ebx], 13
+			inc		ebx
+		inc		esi
 		jmp		topInitLoop
 		endInitLoop:
+		mov		BYTE [hintStr + ebx], 10
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
