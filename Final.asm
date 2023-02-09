@@ -316,13 +316,12 @@ render:
 					;if printing the menu, and if a menu option was just printed,
 					;ensure that the rest of the option is the same color
 				cmp		ebx, mainMenu2
-				je		fuck
+				je		mprint_start
 				cmp		ebx, mainMenu
 				jne		mprint_end
-				fuck:		
+				mprint_start:		
 					cmp		DWORD [colorCode], 3
 					jne		notOpt
-						wop:
 						push	ebx
 						add		ebx, edi
 						mov		esi, 0
@@ -430,19 +429,19 @@ charRender:
 		jmp		rDefault	
 		rDoor:
 			push	DWORD [ebx + edi]
-			guesswhat:
+			isDoor:
 			cmp		BYTE [ebp - 4], '|'
-			jne		boop1
+			jne		notPDoor
 				push	'P'
-				jmp		woop
-			boop1:
+				jmp		doorPushed
+			notPDoor:
 			cmp		BYTE [ebp - 4], '%'
-			jne		boop3
+			jne		notBDoor
 				push	'b'
-				jmp		woop
-			boop3:
+				jmp		doorPushed
+			notBDoor:
 				push	'l'
-			woop:			
+			doorPushed:			
 				call	searchObject
 				add		esp, 8
 			jmp		rDefault
@@ -450,7 +449,7 @@ charRender:
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
 				push	DWORD [doorLayer + edi]
-				jmp		guesswhat
+				jmp		isDoor
 			isSpace:
 			jmp		addChar
 		rWall:
@@ -665,7 +664,6 @@ checkCharMenu:
 						;reset game state
 					mov		DWORD [gameEnd], 0
 					jmp		moveCursor
-				waiting:
 				jmp		checkMove
 		checkMove:
 		mov		edx, 0
@@ -701,7 +699,7 @@ checkCharMenu:
 			mov		edx, 0
 			seekEnd:
 			cmp		BYTE [ebx + edx], 0
-			je		bottomRee
+			je		seekComplete
 				cmp		BYTE [ebx + edx], ')'
 				jne		seekEndOpt
 					add		DWORD [xpos], edx
@@ -719,7 +717,7 @@ checkCharMenu:
 			;if a or d is pressed, scan in the appropriate direction for a wall
 			;if not found, check to see if it's a menu opt. if it isn't, keep checking
 		cmp		BYTE [ebx + edx], '|'
-		je		bottomRee
+		je		seekComplete
 			cmp		BYTE [ebx + edx], ')'
 			jne		notOption
 				add		DWORD [xpos], edx
@@ -732,7 +730,7 @@ checkCharMenu:
 		mvLeft:
 			dec		edx
 			jmp		notUpDown
-		bottomRee:
+		seekComplete:
 		mov		DWORD [xpos], esi
 		mov		DWORD [ypos], edi
 		moveCursor:
@@ -743,7 +741,7 @@ checkCharMenu:
 gameloop:
 	push	ebp
 	mov		ebp, esp
-		GOHERE:
+		resetGame:
 		mov		eax, 220
 		mul		DWORD [ebp + 8]
 		mov		ebx, eax
@@ -802,7 +800,7 @@ gameloop:
 			je		resetBoard
 			jmp		inputFound
 			resetBoard:
-				jmp		GOHERE
+				jmp		resetGame
 			moveUp:
 				dec		DWORD [ypos]
 				jmp		inputFound
@@ -835,10 +833,10 @@ gameloop:
 				jne		newLevel
 					inc		DWORD [ebp + 8]
 					mov		DWORD [ebp + 12], 0
-					jmp		GOHERE
+					jmp		resetGame
 				newLevel:
 					inc		DWORD [ebp + 12]
-					jmp		GOHERE
+					jmp		resetGame
 			notComplete:
 		jmp		game_loop
 		game_loop_end:
@@ -1120,12 +1118,11 @@ searchObject:
 		mov		al, BYTE [ebp + 12]
 		mov		esi, 0
 			;check the board layer for the repsective object
-		testLoop:
+		searchLoop:
 		cmp		esi, 320
-		je		testPassed
+		je		searchPassed
 			cmp		BYTE [ebx + esi], dl
 			jne		checkActive
-				mooo:
 				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
 				cmp		BYTE [doorLayer + edi], al
@@ -1144,9 +1141,9 @@ searchObject:
 					jmp		endSearch
 			checkActive:
 		inc		esi
-		jmp		testLoop
+		jmp		searchLoop
 			;if a button is not found, open the button doors
-		testPassed:
+		searchPassed:
 			cmp		BYTE [doorLayer + edi], '*'
 			je		gDoor2
 			cmp		BYTE [ebx + edi], al
