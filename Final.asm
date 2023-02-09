@@ -35,12 +35,8 @@ segment .data
 		; ANSI escape sequence to clear/refresh the screen
 	clear_screen_code	db	27,"[2J",27,"[H",27,"[0m",0
 		; things the program will print
-	help_str			db 13,10,"Controls: w=UP / a=LEFT / s=DOWN / d=RIGHT / h=HINT / x=EXIT",13,10,0
-	hintCarriage		db 13,0
 	hintBlank			db 10,10,10,10,10,0
-	hintNL				db 10,0
 		;displays num keys
-	key_str				db	"Num keys: %d",10,13,0
 	win_str				db	27,"[2J",27,"[H", "Level complete!",13,10,0
 	waitStr				db	"Press Enter to continue.",13,10,0
 		;all the possible characters that can be displayed on the game board
@@ -60,7 +56,6 @@ segment .bss
 	colorCode	resd	1
 	leverDoors	resd	1
 	displayHint	resd	1
-	hasKey		resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
 	frameBuffer	resb	1536
@@ -78,14 +73,11 @@ segment .bss
 segment .text
 
 	global	main
-	global  init_board
-	global  render
 
 	extern	raw_mode_on
 	extern 	raw_mode_off
 
 	extern	system
-	extern	putchar
 	extern	getchar
 	extern	printf
 	extern	fopen
@@ -238,11 +230,6 @@ render:
 				call	printf
 				add		esp, 4
 			hintShown:
-				;Print the key string
-			push	DWORD[hasKey]
-			push	key_str
-			call	printf
-			add		esp, 8
 		renMenu:
 		mov		DWORD [lastColor], 100
 			;initialize frame buffer index
@@ -808,7 +795,6 @@ gameloop:
 			;call	init_arrs
 		mov		DWORD [displayHint], 1
 		mov		DWORD [leverDoors], 0
-		mov		DWORD [hasKey], 0
 		mov		DWORD [gameEnd], 0
 		game_loop:
 			cmp		DWORD [gameEnd], 1
@@ -953,17 +939,6 @@ checkCharTest:
 			inc		DWORD [ebp + 8]
 			jmp		checkDone
 		pKey:
-			cmp		BYTE [board + eax], 'K'
-			jne		notKey
-				mov		BYTE [board + eax], ' '
-				inc		DWORD [hasKey]
-				jmp		checkDone
-			notKey:
-			cmp		DWORD [hasKey], 0
-			je		noKeys
-				mov		BYTE [board + eax], ' '
-				dec		DWORD [hasKey]
-			noKeys:
 			jmp		pDefault
 		pButton:
 			cmp		BYTE [board + eax], 'B'
@@ -1094,6 +1069,7 @@ init_board:
 		jmp		topInitLoop
 		endInitLoop:
 		mov		BYTE [hintStr + ebx], 10
+		mov		BYTE [hintStr + ebx + 1], 0
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
 		mov		DWORD [ebp - 8], 0
