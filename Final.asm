@@ -259,7 +259,6 @@ render:
 				add		eax, DWORD [xpos]
 				cmp		eax, DWORD [ebp - 4]
 				jne		print_board
-					woopoo:
 					cmp		ebx, mainMenu2
 					je		menuPrint
 					cmp		ebx, mainMenu
@@ -270,13 +269,13 @@ render:
 						mov		DWORD [lastColor], 3
 						mov		DWORD [colorCode], 3
 						push	'>'
-						jmp		somewhere
+						jmp		playerFound
 					printPlayer:
 							;if printing game board, do this
 						lea		eax, [playerColor]
 						mov		DWORD [lastColor], 99
 						push	'O'
-					somewhere:
+					playerFound:
 						;add the respective color code to the frame buffer
 					mov		esi, 0
 					selectColorLoop:
@@ -897,7 +896,6 @@ checkCharTest:
 			call	printf
 			add		esp, 4
 				;loop until enter is pressed
-			kek:
 			call	getchar
 			cmp		eax, 13
 			jne		kek
