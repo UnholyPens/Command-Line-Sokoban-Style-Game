@@ -1,6 +1,6 @@
 ; the size of the game screen in characters
-%define GHEIGHT 16
-%define GWIDTH 20
+%define GHEIGHT 18
+%define GWIDTH 22
 
 segment .data
 		;this file contains a list of all the game boards,
@@ -44,9 +44,11 @@ segment .data
 
 segment .bss
 		; this array stores the current rendered gameboard (HxW)
-	board		resb	320
+	board		resb	396
 		;this array is used to store door characters when they are opened
-	doorLayer	resb	320
+	doorLayer	resb	396
+		;same as the door layer, but for floor objects, like water and plates
+	floorLayer	resb	396
 		; these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
@@ -393,6 +395,12 @@ charRender:
 		je		rWall
 		cmp		BYTE [ebx + edi], ' '
 		je		rSpace
+		cmp		BYTE [ebx + edi], '-'
+		je		rSpace
+		cmp		BYTE [ebx + edi], '|'
+		je		rSpace
+		cmp		BYTE [ebx + edi], 'W'
+		je		rWater
 		cmp		BYTE [ebx + edi], 'K'
 		je		rKey
 		cmp		BYTE [ebx + edi], 'R'
@@ -413,7 +421,7 @@ charRender:
 		je		rButton
 		cmp		BYTE [ebx + edi], '_'
 		je		rDoor
-		cmp		BYTE [ebx + edi], '|'
+		cmp		BYTE [ebx + edi], '!'
 		je		rDoor
 		cmp		BYTE [ebx + edi], '%'
 		je		rDoor
@@ -425,11 +433,11 @@ charRender:
 		je		rGem
 		cmp		BYTE [ebx + edi], '^'
 		je		rGem
-		jmp		rDefault	
+		jmp		rDefault
 		rDoor:
 			push	DWORD [ebx + edi]
 			isDoor:
-			cmp		BYTE [ebp - 4], '|'
+			cmp		BYTE [ebp - 4], '!'
 			jne		notPDoor
 				push	'P'
 				jmp		doorPushed
@@ -439,6 +447,11 @@ charRender:
 				push	'b'
 				jmp		doorPushed
 			notBDoor:
+			cmp		BYTE [ebp - 4], '*'
+			jne		notGBDoor
+				push	'b'
+				jmp		doorPushed
+			notGBDoor:
 				push	'l'
 			doorPushed:			
 				call	searchObject
@@ -450,7 +463,11 @@ charRender:
 				push	DWORD [doorLayer + edi]
 				jmp		isDoor
 			isSpace:
+			mov		dl, ' '
 			jmp		addChar
+		rWater:
+			mov		DWORD [colorCode], 4
+			jmp		rDefault
 		rWall:
 			mov		DWORD [colorCode], 0
 			jmp		rDefault
@@ -767,7 +784,7 @@ gameloop:
 				; draw the game board
 			push	board
 			push	GWIDTH
-			push	320
+			push	396
 			call	render
 			add		esp, 12
 				; get an action from the user
@@ -834,7 +851,7 @@ gameloop:
 					mov		DWORD [ebp + 12], 0
 					jmp		resetGame
 				newLevel:
-					inc		DWORD [ebp + 12]
+					;inc		DWORD [ebp + 12]
 					jmp		resetGame
 			notComplete:
 		jmp		game_loop
@@ -896,6 +913,7 @@ checkCharTest:
 			call	printf
 			add		esp, 4
 				;loop until enter is pressed
+			kek:
 			call	getchar
 			cmp		eax, 13
 			jne		kek
@@ -1058,13 +1076,15 @@ init_board:
 		inc		DWORD [ebp - 8]
 		jmp		read_loop
 		read_loop_end:
-			;populate the door layer
+			;populate the door and floor layer
 		mov		edx, GWIDTH*GHEIGHT
 		mov		edi, 0
-		doorLoop:
+		objLoop:
 		cmp		edi, edx
-		je		endDoorCheck
-			cmp		BYTE [board + edi], '|'
+		je		endObjCheck
+			cmp		BYTE [board + edi], 'P'
+			je		yesPlate
+			cmp		BYTE [board + edi], '!'
 			je		yesPDoor
 			cmp		BYTE [board + edi], '_'
 			je		yesLDoor
@@ -1073,22 +1093,27 @@ init_board:
 			cmp		BYTE [board + edi], '*'
 			je		yesgBDoor
 			mov		BYTE [doorLayer + edi], 0
-			jmp		noDoor
+			mov		BYTE [floorLayer + edi], 0
+			jmp		noObj
+			yesPlate:
+				mov		BYTE [board + edi], ' '
+				mov		BYTE [floorLayer + edi], 'P'
+				jmp		noObj
 			yesPDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				jmp		noDoor
+				jmp		noObj
 			yesLDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				jmp		noDoor
+				jmp		noObj
 			yesBDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				jmp		noDoor
+				jmp		noObj
 			yesgBDoor:
 				mov		BYTE [doorLayer + edi], ' '
-			noDoor:
+			noObj:
 		inc		edi
-		jmp		doorLoop
-		endDoorCheck:
+		jmp		objLoop
+		endObjCheck:
 			; close the open file handle
 		push	DWORD [ebp - 4]
 		call	fclose
@@ -1117,16 +1142,17 @@ searchObject:
 		mov		esi, 0
 			;check the board layer for the repsective object
 		searchLoop:
-		cmp		esi, 320
+		cmp		esi, 396
 		je		searchPassed
 			cmp		BYTE [ebx + esi], dl
 			jne		checkActive
 				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
-				cmp		BYTE [doorLayer + edi], al
-				jne		noSwap
+				cmp		BYTE [ebx + edi], al
+				je		noSwap
 				cmp		al, '*'
 				je		noSwap
+				jmp		checkActive
 				gDoor:
 					call	layerSwap
 				noSwap:
@@ -1148,6 +1174,7 @@ searchObject:
 			jne		doorLayer1
 			cmp		al, '*'
 			je		doorLayer1
+			jmp		endSearch
 				gDoor2:
 				call	layerSwap
 			doorLayer1:

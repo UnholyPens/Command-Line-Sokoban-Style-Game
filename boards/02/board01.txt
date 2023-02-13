@@ -1,19 +1,21 @@
-4 7
+4 3
 If you're seeing this, you have successfully implemented world and level selection. 
 Good job!
 
-*BTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TT       TTTT     TT
-TT       R R      TT
-TT       R R   S  TT
-TT       R R      TT
-TT       TTTT     TT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+----------------------
+|TTTT       WWW    T |
+|T  R      WWW       |
+|T         WWW       |
+|T       R WWW  S    |
+|  R       WWW       |
+| T   R    WWW       |
+|  TT   TT WWWT      |
+|  T   TTT WWW TTTTT |
+| TT TTTTTWWW TT  TT |
+|TTTTTTTTTWWWTTTT TTT|
+|TTTTT T TWWW TTTTTTT|
+|TT TT TTTWWW TTT TTT|
+|T  T TT  WWWTT TT TT|
+|TT TT  T WWWT TTT  T|
+| T  T    WWW     T  |
+----------------------
