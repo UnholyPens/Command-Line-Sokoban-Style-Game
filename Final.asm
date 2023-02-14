@@ -13,11 +13,10 @@ segment .data
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
-	plateUnderGem		db	27,"[1;48;5;249;38;5;9m",0
 	wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
-	pressPlateColor		db	27,"[1;48;5;240;38;5;0m",0
+	pressPlateColor		db	27,"[1;48;5;240;38;5;248m",0
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
@@ -27,7 +26,7 @@ segment .data
 	menuOptColor		db	27,"[38;5;240m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor, plateUnderGem, menuOptColor
+							activeBColor, gemColor, menuOptColor
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -270,8 +269,8 @@ render:
 					menuPrint:
 							;if printing the menu, do this
 						lea		eax, [menuOptColor]
-						mov		DWORD [lastColor], 11
-						mov		DWORD [colorCode], 11
+						mov		DWORD [lastColor], 10
+						mov		DWORD [colorCode], 10
 						push	'>'
 						jmp		playerFound
 					printPlayer:
@@ -323,7 +322,7 @@ render:
 				cmp		ebx, mainMenu
 				jne		mprint_end
 				mprint_start:		
-					cmp		DWORD [colorCode], 11
+					cmp		DWORD [colorCode], 10
 					jne		notOpt
 						push	ebx
 						add		ebx, edi
@@ -389,7 +388,7 @@ mcharRender:
 				mov		DWORD [colorCode], 4
 				jmp		foundBorder
 			menuOpt:
-				mov		DWORD [colorCode], 11
+				mov		DWORD [colorCode], 10
 				mov		dl, ' '
 				jmp		foundBorder
 			notBorder:
@@ -424,9 +423,15 @@ charRender:
 			mov		dl, 'P'
 			call	colorFunc
 			cmp		BYTE [ebx + edi], 'R'
-			jne		rDefault
+			jne		notRockPlate
 				mov		DWORD [colorCode], 2
 				mov		dl, 'R'
+				jmp		rDefault
+			notRockPlate:
+			cmp		BYTE [ebx + edi], 'G'
+			jne		rDefault
+				mov		DWORD [colorCode], 9
+				mov		dl, 'G'
 				jmp		rDefault
 		testing:
 		
@@ -1097,6 +1102,8 @@ init_board:
 		objLoop:
 		cmp		edi, edx
 		je		endObjCheck
+			cmp		BYTE [board + edi], 'g'
+			je		yesGemPlate
 			cmp		BYTE [board + edi], 'P'
 			je		yesPlate
 			cmp		BYTE [board + edi], 'W'
@@ -1112,6 +1119,10 @@ init_board:
 			mov		BYTE [doorLayer + edi], 0
 			mov		BYTE [floorLayer + edi], 0
 			jmp		noObj
+			yesGemPlate:
+				mov		BYTE [board + edi], 'G'
+				mov		BYTe [floorLayer + edi], 'P'
+				jmp		noObj
 			yesPlate:
 				mov		BYTE [board + edi], ' '
 				mov		BYTE [floorLayer + edi], 'P'
@@ -1165,8 +1176,15 @@ searchObject:
 		searchLoop:
 		cmp		esi, 396
 		je		searchPassed
+			cmp		BYTE [ebx + esi], 'R'
+			je		boob
+				cmp		BYTE [floorLayer + esi], 'P'
+				jne		boob
+					jmp		boob2
+			boob:
 			cmp		BYTE [ebx + esi], dl
 			jne		checkActive
+				boob2:
 				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
 				cmp		BYTE [ebx + edi], al
