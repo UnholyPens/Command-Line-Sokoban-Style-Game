@@ -17,16 +17,17 @@ segment .data
 	wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
-	pressPlateColor		db	27,"[38;5;240m",0
+	pressPlateColor		db	27,"[1;48;5;240;38;5;0m",0
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
 	buttonColor			db	27,"[38;5;14m",0
 	activeBColor		db	27,"[38;5;1m",0
 	gemColor			db	27,"[38;5;9m",0
+	menuOptColor		db	27,"[38;5;240m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor, plateUnderGem
+							activeBColor, gemColor, plateUnderGem, menuOptColor
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -54,6 +55,7 @@ segment .bss
 	ypos		resd	1
 		;These variables store various data for rendering
 	colorCode	resd	1
+	plateCol	resd	1
 	displayHint	resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
@@ -267,9 +269,9 @@ render:
 					jne		printPlayer
 					menuPrint:
 							;if printing the menu, do this
-						lea		eax, [pressPlateColor]
-						mov		DWORD [lastColor], 3
-						mov		DWORD [colorCode], 3
+						lea		eax, [menuOptColor]
+						mov		DWORD [lastColor], 11
+						mov		DWORD [colorCode], 11
 						push	'>'
 						jmp		playerFound
 					printPlayer:
@@ -321,7 +323,7 @@ render:
 				cmp		ebx, mainMenu
 				jne		mprint_end
 				mprint_start:		
-					cmp		DWORD [colorCode], 3
+					cmp		DWORD [colorCode], 11
 					jne		notOpt
 						push	ebx
 						add		ebx, edi
@@ -339,7 +341,23 @@ render:
 						skipLoopEnd:
 						pop		ebx
 					notOpt:
-				mprint_end:	
+				mprint_end:
+				cmp		DWORD [plateCol], 1
+				jne		nPlateGem
+					testes:
+					mov		esi, 0
+					resetColorLoop:
+					cmp		BYTE [resetColor + esi],0
+					je		endResetColorLoop
+						mov		al, BYTE [resetColor + esi]
+						mov		BYTE [frameBuffer + ecx], al
+						inc		ecx
+					inc		esi
+					jmp		resetColorLoop
+					endResetColorLoop:
+					mov		DWORD [colorCode], 101
+					mov		DWORD [plateCol], 0
+				nPlateGem:
 				inc		DWORD [ebp - 8]
 		inc		DWORD [ebp - 4]
 		jmp		y_loop_start
@@ -371,7 +389,7 @@ mcharRender:
 				mov		DWORD [colorCode], 4
 				jmp		foundBorder
 			menuOpt:
-				mov		DWORD [colorCode], 3
+				mov		DWORD [colorCode], 11
 				mov		dl, ' '
 				jmp		foundBorder
 			notBorder:
@@ -391,6 +409,27 @@ charRender:
 	mov		ebp, esp
 			;compare the current byte to the various game objects, then
 			;change the symbol and color accordingly
+		cmp		BYTE [floorLayer + edi], 'W'
+		je		rFWater
+		cmp		BYTE [floorLayer + edi], 'P'
+		je		rFPlate
+		jmp		testing
+		rFWater:
+			mov		DWORD [colorCode], 4
+			mov		dl, 'W'
+			jmp		rDefault
+		rFPlate:
+			mov		DWORD [colorCode], 3
+			mov		DWORD [plateCol], 1
+			mov		dl, 'P'
+			call	colorFunc
+			cmp		BYTE [ebx + edi], 'R'
+			jne		rDefault
+				mov		DWORD [colorCode], 2
+				mov		dl, 'R'
+				jmp		rDefault
+		testing:
+		
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
 		cmp		BYTE [ebx + edi], ' '
@@ -399,16 +438,10 @@ charRender:
 		je		rSpace
 		cmp		BYTE [ebx + edi], '|'
 		je		rSpace
-		cmp		BYTE [ebx + edi], 'W'
-		je		rWater
 		cmp		BYTE [ebx + edi], 'K'
 		je		rKey
 		cmp		BYTE [ebx + edi], 'R'
 		je		rRock
-		cmp		BYTE [ebx + edi], 'p'
-		je		rRock
-		cmp		BYTE [ebx + edi], 'P'
-		je		rPlate
 		cmp		BYTE [ebx + edi], 'L'
 		je		rLever
 		cmp		BYTE [ebx + edi], 'l'
@@ -465,9 +498,6 @@ charRender:
 			isSpace:
 			mov		dl, ' '
 			jmp		addChar
-		rWater:
-			mov		DWORD [colorCode], 4
-			jmp		rDefault
 		rWall:
 			mov		DWORD [colorCode], 0
 			jmp		rDefault
@@ -480,9 +510,6 @@ charRender:
 		rRock:
 			mov		DWORD [colorCode], 2
 			mov		dl, 'R'
-			jmp		rDefault
-		rPlate:
-			mov		DWORD [colorCode], 3
 			jmp		rDefault
 		rLever:
 			mov		DWORD [colorCode], 4
@@ -534,19 +561,7 @@ charRender:
 		inc		ecx
 			;save the last char that was moved into the buffer 
 			;to prevent redudant color codes from being printed
-		cmp		BYTE [ebx + edi], 'g'
-		jne		nPlateGem
-			mov		esi, 0
-			resetColorLoop:
-			cmp		BYTE [resetColor + esi],0
-			je		endResetColorLoop
-				mov		al, BYTE [resetColor + esi]
-				mov		BYTE [frameBuffer + ecx], al
-				inc		ecx
-			inc		esi
-			jmp		resetColorLoop
-			endResetColorLoop:
-		nPlateGem:
+		
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -1084,6 +1099,8 @@ init_board:
 		je		endObjCheck
 			cmp		BYTE [board + edi], 'P'
 			je		yesPlate
+			cmp		BYTE [board + edi], 'W'
+			je		yesWater
 			cmp		BYTE [board + edi], '!'
 			je		yesPDoor
 			cmp		BYTE [board + edi], '_'
@@ -1098,6 +1115,10 @@ init_board:
 			yesPlate:
 				mov		BYTE [board + edi], ' '
 				mov		BYTE [floorLayer + edi], 'P'
+				jmp		noObj
+			yesWater:
+				mov		BYTE [board + edi], ' '
+				mov		BYTE [floorLayer + edi], 'W'
 				jmp		noObj
 			yesPDoor:
 				mov		BYTE [doorLayer + edi], ' '
@@ -1152,7 +1173,6 @@ searchObject:
 				je		noSwap
 				cmp		al, '*'
 				je		noSwap
-				jmp		checkActive
 				gDoor:
 					call	layerSwap
 				noSwap:
@@ -1174,7 +1194,6 @@ searchObject:
 			jne		doorLayer1
 			cmp		al, '*'
 			je		doorLayer1
-			jmp		endSearch
 				gDoor2:
 				call	layerSwap
 			doorLayer1:
@@ -1198,8 +1217,11 @@ colorFunc:
 		mov		esi, DWORD[colorCode]
 			;if the character being loaded into the frame buffer isn't the same as the last one,
 			;load each of the bytes for the color code into the frame buffer until we reach a null byte
+		cmp		DWORD [lastColor], 3
+		je		colorAnyway
 		cmp		DWORD [lastColor], esi
 		je		redundantColor
+			colorAnyway:
 			mov		esi, DWORD[colorCodeArray + esi * 4]
 			mov		DWORD [ebp - 4], 0
 			mov		eax, DWORD [ebp - 4]
