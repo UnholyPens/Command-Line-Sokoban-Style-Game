@@ -344,7 +344,6 @@ render:
 				mprint_end:
 				cmp		DWORD [plateCol], 1
 				jne		nPlateGem
-					testes:
 					mov		esi, 0
 					resetColorLoop:
 					cmp		BYTE [resetColor + esi],0
@@ -823,9 +822,9 @@ gameloop:
 			mov		eax, GWIDTH
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
-				;call checkCharTest, passing it the current board index
+				;call checkCharGame, passing it the current board index
 			push	DWORD [ebp + 12]
-			call	checkCharTest
+			call	checkCharGame
 			pop		DWORD [ebp + 12]
 				;If the level was completed, proceed to the next one
 			cmp		ebx, DWORD [ebp + 12]
@@ -845,7 +844,7 @@ gameloop:
 	pop		ebp
 	ret
 
-checkCharTest:
+checkCharGame:
 	push	ebp
 	mov		ebp, esp
 		mov		ebx, DWORD [ebp + 8]
