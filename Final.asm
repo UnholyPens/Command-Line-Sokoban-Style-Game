@@ -13,7 +13,6 @@ segment .data
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
-	;wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
 	pressPlateColor		db	27,"[1;48;5;240;38;5;248m",0
@@ -1162,17 +1161,16 @@ searchObject:
 		cmp		esi, 396
 		je		searchPassed
 			cmp		BYTE [ebx + esi], 'R'
-			je		boob
+			je		notCovered
 			cmp		BYTE [ebx + esi], 'G'
-			je		boob
+			je		notCovered
 				cmp		BYTE [floorLayer + esi], dl
-				jne		boob
-					wapf:
-					jmp		boob2
-			boob:
+				jne		notCovered
+					jmp		plateCovered
+			notCovered:
 			cmp		BYTE [ebx + esi], dl
 			jne		checkActive
-				boob2:
+				plateCovered:
 				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
 				cmp		BYTE [ebx + edi], al
