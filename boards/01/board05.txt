@@ -1,7 +1,8 @@
-4 7
+[38;5;22m
+5 8
 If you forget how something works, you can press 'T'.
 This will bring up a descriptive list of what the game objects do.
-
+Hah, you thought! As if this is a fully fleshed out game!
 ----------------------
 |TTTTTTTTTTTTTTTTTTTT|
 |TTTTTTTTTTTTTTTTTTTT|

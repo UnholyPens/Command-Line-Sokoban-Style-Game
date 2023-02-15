@@ -1,4 +1,5 @@
-8 7
+[38;5;22m
+9 8
 You could press page down to undo your moves, if this were a good game.
 
 
@@ -10,7 +11,7 @@ You could press page down to undo your moves, if this were a good game.
 |TTTTTTTTTTTTTTTTTTTT|
 |T   TGT    TBT    TT|
 |T RR*PP  R T T    TT|
-|T   T     ST ! S  TT|
+|T   T      T ! S  TT|
 |T  R%PP    ^ T    TT|
 |T   T T   GT T    TT|
 |TTTTTTTTTTTTTTTTTTTT|

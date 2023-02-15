@@ -1,4 +1,5 @@
-4 7
+[38;5;22m
+5 8
 The teal door will open when all buttons are turned on.
 If you need to see any introductory notes again, press 'h'. 
 

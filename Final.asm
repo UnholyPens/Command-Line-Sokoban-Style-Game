@@ -13,7 +13,7 @@ segment .data
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
-	wallColor			db	27,"[38;5;22m",0
+	;wallColor			db	27,"[38;5;22m",0
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
 	pressPlateColor		db	27,"[1;48;5;240;38;5;248m",0
@@ -21,7 +21,7 @@ segment .data
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
 	buttonColor			db	27,"[38;5;14m",0
-	activeBColor		db	27,"[38;5;1m",0
+	activeBColor		db	27,"[38;5;13m",0
 	gemColor			db	27,"[38;5;9m",0
 	menuOptColor		db	27,"[38;5;240m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
@@ -69,6 +69,8 @@ segment .bss
 		;stores the main menu
 	mainMenu	resb	1001
 	mainMenu2	resb	1001
+
+	wallColor	resb	14
 
 segment .text
 
@@ -412,7 +414,7 @@ charRender:
 		je		rFWater
 		cmp		BYTE [floorLayer + edi], 'P'
 		je		rFPlate
-		jmp		testing
+		jmp		notFloor
 		rFWater:
 			mov		DWORD [colorCode], 4
 			mov		dl, 'W'
@@ -422,18 +424,7 @@ charRender:
 			mov		DWORD [plateCol], 1
 			mov		dl, 'P'
 			call	colorFunc
-			cmp		BYTE [ebx + edi], 'R'
-			jne		notRockPlate
-				mov		DWORD [colorCode], 2
-				mov		dl, 'R'
-				jmp		rDefault
-			notRockPlate:
-			cmp		BYTE [ebx + edi], 'G'
-			jne		rDefault
-				mov		DWORD [colorCode], 9
-				mov		dl, 'G'
-				jmp		rDefault
-		testing:
+		notFloor:
 		
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
@@ -451,12 +442,14 @@ charRender:
 		je		rLever
 		cmp		BYTE [ebx + edi], 'l'
 		je		rLever
-		cmp		BYTE [ebx + edi], 'S'
-		je		rStairs
 		cmp		BYTE [ebx + edi], 'B'
 		je		rButton
 		cmp		BYTE [ebx + edi], 'b'
 		je		rButton
+		cmp		BYTE [ebx + edi], 'G'
+		je		rGem
+		cmp		BYTE [ebx + edi], 'S'
+		je		rStairs
 		cmp		BYTE [ebx + edi], '_'
 		je		rDoor
 		cmp		BYTE [ebx + edi], '!'
@@ -465,37 +458,15 @@ charRender:
 		je		rDoor
 		cmp		BYTE [ebx + edi], '*'
 		je		rDoor
-		cmp		BYTE [ebx + edi], 'G'
-		je		rGem
-		cmp		BYTE [ebx + edi], 'g'
-		je		rGem
 		cmp		BYTE [ebx + edi], '^'
-		je		rGem
+		je		rDoor
 		jmp		rDefault
-		rDoor:
-			push	DWORD [ebx + edi]
-			isDoor:
-			cmp		BYTE [ebp - 4], '!'
-			jne		notPDoor
-				push	'P'
-				jmp		doorPushed
-			notPDoor:
-			cmp		BYTE [ebp - 4], '%'
-			jne		notBDoor
-				push	'b'
-				jmp		doorPushed
-			notBDoor:
-			cmp		BYTE [ebp - 4], '*'
-			jne		notGBDoor
-				push	'b'
-				jmp		doorPushed
-			notGBDoor:
-				push	'l'
-			doorPushed:			
-				call	searchObject
-				add		esp, 8
+		rWall:
+			mov		DWORD [colorCode], 0
 			jmp		rDefault
 		rSpace:
+			cmp		BYTE [floorLayer + edi], 'P'
+			je		addChar
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
 				push	DWORD [doorLayer + edi]
@@ -503,70 +474,65 @@ charRender:
 			isSpace:
 			mov		dl, ' '
 			jmp		addChar
-		rWall:
-			mov		DWORD [colorCode], 0
-			jmp		rDefault
 		rKey:
 			mov		DWORD [colorCode], 1
-			cmp		dl, 'A'
-			jne		rDefault
-				mov		dl, '#'
-				jmp		rDefault
+			jmp		rDefault
 		rRock:
 			mov		DWORD [colorCode], 2
 			mov		dl, 'R'
 			jmp		rDefault
 		rLever:
 			mov		DWORD [colorCode], 4
-			mov		dl, BYTE [ebx + edi]
-			jmp		rDefault
-			;stairs
-		rStairs:
-			mov		DWORD [colorCode], 6
 			jmp		rDefault
 		rButton:
 			mov		DWORD [colorCode], 7
 			jmp		rDefault
 		rGem:
 			mov		DWORD [colorCode], 9
-			cmp		dl, 'g'
-			jne		notGemPlate
-				mov		DWORD [colorCode], 10
-				mov		dl, 'G'
-				jmp		rDefault
-			notGemPlate:
-			cmp		dl, '^'
-			jne		notGemDoor
-				mov		esi, 0
-				gemLoop:
-				cmp		esi, 300
-				je		noGems
-					cmp		BYTE [board + esi], 'G'
-					je		gemsFound
-					cmp		BYTE [board + esi], 'g'
-					jne		checkGem
-						jmp		gemsFound
-					checkGem:
-				inc		esi
-				jmp		gemLoop
-				noGems:
-				mov		BYTE [ebx + edi], ' '
-				mov		dl, ' '
-				jmp		rDefault
-				gemsFound:
-				mov		dl, '#'
-				jmp		rDefault
-			notGemDoor:
-			jmp	rDefault
+			mov		dl, 'G'
+			jmp		rDefault
+		rStairs:
+			mov		DWORD [colorCode], 6
+			jmp		rDefault
+		rDoor:
+			push	DWORD [ebx + edi]
+			isDoor:
+			mov		DWORd [colorCode], 5
+			cmp		BYTE [ebp - 4], '!'
+			je		notPDoor
+			mov		DWORD [colorCode], 7
+			cmp		BYTE [ebp - 4], '%'
+			je		notBDoor
+			mov		DWORD [colorCode], 8
+			cmp		BYTE [ebp - 4], '*'
+			je		notGBDoor
+			mov		DWORD [colorCode], 9
+			cmp		BYTE [ebp - 4], '^'
+			je		notGDoor
+			jmp		defaultDoor
+			notPDoor:
+				push	'P'
+				jmp		doorPushed
+			notBDoor:
+				push	'b'
+				jmp		doorPushed
+			notGBDoor:
+				push	'b'
+				jmp		doorPushed
+			notGDoor:
+				push	'G'
+				jmp		doorPushed
+			defaultDoor:
+				push	'l'
+			doorPushed:			
+				call	searchObject
+				add		esp, 8
 		rDefault:
 		call	colorFunc
 		addChar:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
-			;save the last char that was moved into the buffer 
-			;to prevent redudant color codes from being printed
-		
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -1034,6 +1000,20 @@ init_board:
 		call	fopen
 		add		esp, 8
 		mov		DWORD [ebp - 4], eax
+			;load in the color for the walls
+		mov		BYTE [wallColor], 27
+		lea		eax, [wallColor + 1]
+		push	DWORD [ebp - 4]
+		push	15
+		push	eax
+		call	fgets
+		add		esp, 12
+			;remove new line char
+		lea		eax, [wallColor]
+		push	eax
+		call	strlen
+		add		esp, 4
+		mov		BYTE [wallColor + eax - 1], 0
 			;load the player's starting position
 		push	ypos
 		push	xpos
@@ -1116,6 +1096,8 @@ init_board:
 			je		yesBDoor
 			cmp		BYTE [board + edi], '*'
 			je		yesgBDoor
+			cmp		BYTe [board + edi], '^'
+			je		yesGDoor
 			mov		BYTE [doorLayer + edi], 0
 			mov		BYTE [floorLayer + edi], 0
 			jmp		noObj
@@ -1141,6 +1123,9 @@ init_board:
 				mov		BYTE [doorLayer + edi], ' '
 				jmp		noObj
 			yesgBDoor:
+				mov		BYTE [doorLayer + edi], ' '
+				jmp		noObj
+			yesGDoor:
 				mov		BYTE [doorLayer + edi], ' '
 			noObj:
 		inc		edi
@@ -1178,8 +1163,11 @@ searchObject:
 		je		searchPassed
 			cmp		BYTE [ebx + esi], 'R'
 			je		boob
-				cmp		BYTE [floorLayer + esi], 'P'
+			cmp		BYTE [ebx + esi], 'G'
+			je		boob
+				cmp		BYTE [floorLayer + esi], dl
 				jne		boob
+					wapf:
 					jmp		boob2
 			boob:
 			cmp		BYTE [ebx + esi], dl

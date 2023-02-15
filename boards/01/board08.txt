@@ -1,4 +1,5 @@
-4 7
+[38;5;22m
+5 8
 Sometimes you need to think about your actions before being hasty.
 
 
