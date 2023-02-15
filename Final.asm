@@ -410,13 +410,20 @@ charRender:
 			;change the symbol and color accordingly
 		cmp		BYTE [floorLayer + edi], 'W'
 		je		rFWater
+		cmp		BYTE [floorLayer + edi], 'R'
+		je		rFWater
 		cmp		BYTE [floorLayer + edi], 'P'
 		je		rFPlate
 		jmp		notFloor
 		rFWater:
 			mov		DWORD [colorCode], 4
-			mov		dl, 'W'
-			jmp		rDefault
+			cmp		BYTE [floorLayer + edi], 'W'
+			jne		floorRock
+				mov		dl, 'W'
+				jmp		rDefault
+			floorRock:
+				mov		dl, 'R'
+				jmp		notFloor
 		rFPlate:
 			mov		DWORD [colorCode], 3
 			mov		DWORD [plateCol], 1
@@ -465,6 +472,8 @@ charRender:
 		rSpace:
 			cmp		BYTE [floorLayer + edi], 'P'
 			je		addChar
+			cmp		BYTE [floorLayer + edi], 'R'
+			je		rDefault
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
 				push	DWORD [doorLayer + edi]
@@ -848,14 +857,12 @@ checkCharGame:
 	push	ebp
 	mov		ebp, esp
 		mov		ebx, DWORD [ebp + 8]
+		cmp		BYTE [floorLayer + eax], 'W'
+		je		pDefault
 		cmp		BYTE [board + eax], ' '
 		je		checkDone
 		cmp		BYTE [board + eax], 'R'
 		je		pRock
-		cmp		BYTE [board + eax], 'p'
-		je		pRock
-		cmp		BYTE [board + eax], 'P'
-		je		checkDone
 		cmp		BYTE [board + eax], 'L'
 		je		pLever
 		cmp		BYTE [board + eax], 'l'
@@ -870,7 +877,6 @@ checkCharGame:
 		je		pButton
 		cmp		BYTE [board + eax], 'G'
 		je		pGem
-		cmp		BYTE [board + eax], 'g'
 		jmp		pDefault
 		pRock:
 			call	pushRock
@@ -897,10 +903,10 @@ checkCharGame:
 			call	printf
 			add		esp, 4
 				;loop until enter is pressed
-			kek:
+			garbageLoop:
 			call	getchar
 			cmp		eax, 13
-			jne		kek
+			jne		garbageLoop
 				;inc the board counter
 			inc		DWORD [ebp + 8]
 			jmp		checkDone
@@ -915,11 +921,6 @@ checkCharGame:
 			mov		BYTE [board + eax], 'B'
 			jmp		pDefault
 		pGem:
-			cmp		BYTE [board + eax], 'g'
-			jne		notPlateGem
-				mov		BYTE [board + eax], 'P'
-				jmp		checkDone
-			notPlateGem:
 			mov		BYTE [board + eax], ' '
 			jmp		checkDone
 		pDefault:
@@ -947,37 +948,34 @@ pushRock:
 			;according to the direction the rock is moivng
 		nextDir1:
 			lea		ecx, [board + eax - GWIDTH]
+			lea		edx, [floorLayer + eax - GWIDTH]
 			jmp		moveRock
 		nextDir2:
 			lea		ecx, [board + eax - 1]
+			lea		edx, [floorLayer + eax - 1]
 			jmp		moveRock
 		nextDir3:
 			lea		ecx, [board + eax + GWIDTH]
+			lea		edx, [floorLayer + eax + GWIDTH]
 			jmp		moveRock
 		nextDir4:
 			lea		ecx, [board + eax + 1]
+			lea		edx, [floorLayer + eax + 1]
 		moveRock:
 			;Check if the character the rock was pushed into is a valid move
 			;if not, reset the position of the player
 		cmp		BYTE [ecx], ' '
-		je		canMove
-		cmp		BYTE [ecx], 'P'
 		jne		pathBlocked
 		canMove:
-			cmp		BYTE [board + eax], 'p'
-			je		onPlate
+			cmp		BYTE [edx], 'W'
+			jne		notOnWater
+				mov		BYTE [board + eax], ' '
+				mov		BYTE [edx], 'R'
+				jmp		rockend
+			notOnWater:
 			mov		BYTE [board + eax], ' '
-			jmp		mvNext
-			onPlate:
-				mov		BYTE [board + eax], 'P'
-			mvNext:
-			cmp		BYTE [ecx], 'P'
-			je		plateNext
 			mov		BYTE [ecx], 'R'
 			jmp		rockend
-			plateNext:
-				mov		BYTE [ecx], 'p'
-				jmp		rockend
 		pathBlocked:
 		mov		DWORD [xpos], esi
 		mov		DWORD [ypos], edi
