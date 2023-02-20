@@ -1,4 +1,5 @@
 [38;5;22m
+[38;5;22m
 5 8
 You can use an object to hold open a door.
 

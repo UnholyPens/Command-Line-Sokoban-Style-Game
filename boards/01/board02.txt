@@ -1,4 +1,5 @@
 [38;5;22m
+[38;5;22m
 5 8
 The plate door will open when all plates have been depressed.
 Plates cannot be depressed by you, but most other things can do the trick.

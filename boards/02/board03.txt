@@ -1,19 +1,23 @@
-4 7
+[38;5;22m
+[38;5;101m
+5 4
 The teal door will open when all buttons are turned on.
 If you need to see any introductory notes again, press 'h'. 
 
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTBTTTTTbTTTTTTTTT
-TT          T     TT
-TT    b B   T     TT
-TT          %  S  TT
-TT    B b   T     TT
-TT          T     TT
-TTTTbTTTTTBTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+----------------------
+|TTTT       WWW    T |
+|T  R   R RWWWOOOOO  |
+|T R       WWWO   O  |
+|T     R R WWW! S O  |
+|  R    R  WWWO   O  |
+| T   R   RWWWOOOOO  |
+|  TT   TT WWWT      |
+|  T   TTT WPW TTTTT |
+| TT TTTTTWWW TT  TT |
+|TTTTTTTTTWWWTTTT TTT|
+|TTTTT T TWWW TTTTTTT|
+|TT TT TTTWWW TTT TTT|
+|T  T TT  WWWTT TT TT|
+|TT TT  T WWWT TTT  T|
+| T  T    WWW     T  |
+----------------------

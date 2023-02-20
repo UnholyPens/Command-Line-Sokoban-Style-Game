@@ -1,4 +1,5 @@
 [38;5;22m
+[38;5;22m
 5 8
 The object of the game is to walk to the staircase in each game stage. 
 Use W, A, S, D to move and push the rocks. Push X to exit.

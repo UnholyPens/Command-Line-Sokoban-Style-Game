@@ -1,4 +1,5 @@
 [38;5;22m
+[38;5;22m
 5 8
 If you forget how something works, you can press 'T'.
 This will bring up a descriptive list of what the game objects do.

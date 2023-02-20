@@ -25,7 +25,7 @@ segment .data
 	menuOptColor		db	27,"[38;5;240m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor, menuOptColor
+							activeBColor, gemColor, menuOptColor, wallColor2
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -63,13 +63,14 @@ segment .bss
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is
 		;filled in loadBoards
-	boardArray	resb	2200
+	boardArray	resb	2201
 	spacePressed resd	1
 		;stores the main menu
 	mainMenu	resb	1001
 	mainMenu2	resb	1001
 
 	wallColor	resb	14
+	wallColor2	resb	14
 
 segment .text
 
@@ -416,12 +417,13 @@ charRender:
 		je		rFPlate
 		jmp		notFloor
 		rFWater:
-			mov		DWORD [colorCode], 4
 			cmp		BYTE [floorLayer + edi], 'W'
 			jne		floorRock
+				mov		DWORD [colorCode], 4
 				mov		dl, 'W'
 				jmp		rDefault
 			floorRock:
+				mov		DWORD [colorCode], 7
 				mov		dl, 'R'
 				jmp		notFloor
 		rFPlate:
@@ -432,6 +434,8 @@ charRender:
 		notFloor:
 		
 		cmp		BYTE [ebx + edi], 'T'
+		je		rWall
+		cmp		BYTE [ebx + edi], 'O'
 		je		rWall
 		cmp		BYTE [ebx + edi], ' '
 		je		rSpace
@@ -467,8 +471,13 @@ charRender:
 		je		rDoor
 		jmp		rDefault
 		rWall:
-			mov		DWORD [colorCode], 0
-			jmp		rDefault
+			cmp		BYTE [ebx + edi], 'T'
+			je		wall2
+				mov		DWORD [colorCode], 11
+				jmp		rDefault
+			wall2:
+				mov		DWORD [colorCode], 0
+				jmp		rDefault
 		rSpace:
 			cmp		BYTE [floorLayer + edi], 'P'
 			je		addChar
@@ -1010,6 +1019,20 @@ init_board:
 		call	strlen
 		add		esp, 4
 		mov		BYTE [wallColor + eax - 1], 0
+
+		mov		BYTE [wallColor2], 27
+		lea		eax, [wallColor2 + 1]
+		push	DWORD [ebp - 4]
+		push	15
+		push	eax
+		call	fgets
+		add		esp, 12
+			;remove new line char
+		lea		eax, [wallColor2]
+		push	eax
+		call	strlen
+		add		esp, 4
+		mov		BYTE [wallColor2 + eax - 1], 0
 			;load the player's starting position
 		push	ypos
 		push	xpos
