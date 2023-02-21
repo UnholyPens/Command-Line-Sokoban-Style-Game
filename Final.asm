@@ -1,6 +1,5 @@
 ; the size of the game screen in characters
 %define GHEIGHT 18
-%define GWIDTH 22
 
 segment .data
 		;this file contains a list of all the game boards,
@@ -43,11 +42,11 @@ segment .data
 
 segment .bss
 		; this array stores the current rendered gameboard (HxW)
-	board		resb	396
+	board		resb	432
 		;this array is used to store door characters when they are opened
-	doorLayer	resb	396
+	doorLayer	resb	432
 		;same as the door layer, but for floor objects, like water and plates
-	floorLayer	resb	396
+	floorLayer	resb	432
 		; these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
@@ -57,7 +56,7 @@ segment .bss
 	displayHint	resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
-	frameBuffer	resb	1536
+	frameBuffer	resb	2000
 	lastColor	resd	1
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
@@ -66,8 +65,8 @@ segment .bss
 	boardArray	resb	2201
 	spacePressed resd	1
 		;stores the main menu
-	mainMenu	resb	1001
-	mainMenu2	resb	1001
+	mainMenu	resb	1041
+	mainMenu2	resb	1041
 
 	wallColor	resb	14
 	wallColor2	resb	14
@@ -129,10 +128,9 @@ loadBoards:
 			;free up eax
 		mov		DWORD[ebp - 4], eax
 			;initialize the indexer
-		mov		DWORD [ebp - 8], 0
+		mov		esi, 0
 		topReadLoop:
-		mov		ecx, DWORD [ebp - 8]
-		lea		edx, [boardArray + ecx]
+		lea		edx, [boardArray + esi]
 		cmp		eax, 0
 		je		endReadLoop
 				;read the line into boardArray
@@ -142,9 +140,8 @@ loadBoards:
 			call	fgets
 			add		esp, 12
 				;replace the new line with a null byte
-			mov		ecx, DWORD [ebp - 8]
-			mov		BYTE [boardArray + ecx + 21], 0
-		add		DWORD [ebp - 8], 22
+			mov		BYTE [boardArray + esi + 21], 0
+		add		esi, 22
 		jmp		topReadLoop
 		endReadLoop:
 			;close the file
@@ -158,7 +155,7 @@ loadBoards:
 loadMenu:
 	push	ebp
 	mov		ebp, esp
-		sub		esp, 8
+		sub		esp, 4
 			;open the file
 		push	mode_r
 		push	DWORD [ebp + 8]
@@ -167,26 +164,12 @@ loadMenu:
 			;free up eax
 		mov		DWORD[ebp - 4], eax
 			;initialize the indexer
-		mov		DWORD [ebp - 8], 0
-		mov		ebx, DWORD [ebp + 12]
-		topMenuLoop:
-		mov		ecx, DWORD [ebp - 8]
-		lea		edx, [ebx + ecx]
-		cmp		eax, 0xffffffff
-		je		endMenuLoop
-				;read the line into boardArray
-			push	DWORD [ebp - 4]
-			push	51
-			push	edx
-			call	fgets
-			add		esp, 12
-				; slurp up the newline
-			push	DWORD [ebp - 4]
-			call	fgetc
-			add		esp, 4
-		add		DWORD [ebp - 8], 50
-		jmp		topMenuLoop
-		endMenuLoop:
+		push	51
+		push	52
+		push	DWORD [ebp + 12]
+		push	DWORD [ebp - 4]
+		call	readDisplay
+		add		esp, 16
 			;close the file
 		push	DWORD [ebp - 4]
 		call	fclose
@@ -211,11 +194,8 @@ render:
 		mov		ebx, DWORD [ebp + 16]
 		cmp		ebx, board
 		jne		renMenu
-				;add color
-			push	helpStrColor
-			call	printf
-			add		esp, 4
 				; print the help information if it needs to be
+				;if displayHint is 0, just display blank space
 			cmp		DWORD [displayHint], 0
 			je		noHint
 				lea		ecx, [hintStr]
@@ -223,13 +203,11 @@ render:
 				call	printf
 				add		esp, 4
 				mov		DWORD [displayHint], 0
-				jmp		hintShown
+				jmp		renMenu
 			noHint:
-					;if displayHint is 0, just display blank space
 				push	hintBlank
 				call	printf
 				add		esp, 4
-			hintShown:
 		renMenu:
 		mov		DWORD [lastColor], 100
 			;initialize frame buffer index
@@ -237,24 +215,11 @@ render:
 			; outside loop by height
 			; i.e. for(c=0; c<height; c++)
 		mov		DWORD [ebp - 4], 0
-		mov		DWORD [ebp - 8], 0
 		y_loop_start:
 		mov		eax, DWORD [ebp + 8]
 		cmp		DWORD [ebp - 4], eax
 		je		y_loop_end
 				;if width counter == width, print new line and carriage return
-			mov		eax, DWORD [ebp + 12]
-			cmp		DWORD [ebp - 8], eax
-			jne 		countWidth
-				mov		DWORD [ebp - 8], 0
-					; write a carriage return (necessary when in raw mode)
-				mov		BYTE [frameBuffer + ecx], 0x0d
-				inc		ecx
-					; write a newline
-				mov		BYTE [frameBuffer + ecx], 10
-				inc		ecx
-				jmp		y_loop_start
-			countWidth:
 					;retrieve the next board character to be printed
 					; check if (xpos,ypos)=(x,y)
 					;save the value of eax
@@ -317,51 +282,15 @@ render:
 					pop		ebx
 					jmp		print_end
 				print_end:
-					;if printing the menu, and if a menu option was just printed,
-					;ensure that the rest of the option is the same color
-				cmp		ebx, mainMenu2
-				je		mprint_start
-				cmp		ebx, mainMenu
-				jne		mprint_end
-				mprint_start:		
-					cmp		DWORD [colorCode], 10
-					jne		notOpt
-						push	ebx
-						add		ebx, edi
-						mov		esi, 0
-						SkipLoopTop:
-						cmp		BYTE [ebx + esi + 1], ' '
-						je		skipLoopEnd
-							mov		dl, BYTE [ebx + esi + 1]
-							mov		BYTE [frameBuffer + ecx], dl
-							inc		ecx
-							inc		DWORD [ebp - 8]
-							inc		DWORD [ebp - 4]
-						inc		esi
-						jmp		SkipLoopTop
-						skipLoopEnd:
-						pop		ebx
-					notOpt:
-				mprint_end:
-				cmp		DWORD [plateCol], 1
-				jne		nPlateGem
-					mov		esi, 0
-					resetColorLoop:
-					cmp		BYTE [resetColor + esi],0
-					je		endResetColorLoop
-						mov		al, BYTE [resetColor + esi]
-						mov		BYTE [frameBuffer + ecx], al
-						inc		ecx
-					inc		esi
-					jmp		resetColorLoop
-					endResetColorLoop:
-					mov		DWORD [colorCode], 101
-					mov		DWORD [plateCol], 0
-				nPlateGem:
-				inc		DWORD [ebp - 8]
+					;if a menu opt was printed, skip past the selection text
+				cmp		DWORD [colorCode], 10
+				jne		notOpt
+					call	skipLoop
+				notOpt:
 		inc		DWORD [ebp - 4]
 		jmp		y_loop_start
 		y_loop_end:
+		mov		BYTE [frameBuffer + ecx], 0
 		push	frameBuffer
 		push	boardFormat
 		call	printf
@@ -549,6 +478,22 @@ charRender:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
+
+		cmp		DWORD [plateCol], 1
+		jne		nPlateGem
+			mov		esi, 0
+			resetColorLoop:
+			cmp		BYTE [resetColor + esi],0
+			je		endResetColorLoop
+				mov		al, BYTE [resetColor + esi]
+				mov		BYTE [frameBuffer + ecx], al
+				inc		ecx
+			inc		esi
+			jmp		resetColorLoop
+			endResetColorLoop:
+			mov		DWORD [colorCode], 101
+			mov		DWORD [plateCol], 0
+		nPlateGem:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -567,7 +512,7 @@ menuLoop:
 			je		menu_loop_end
 				; draw the game board
 			push	DWORD [ebp + 8]
-			push	50
+			push	52
 			push	1050
 			call	render
 			add		esp, 12
@@ -606,7 +551,7 @@ menuLoop:
 			push	eax
 			
 			mov		ecx, 0
-			mov		eax, 50
+			mov		eax, 52
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 			
@@ -785,8 +730,8 @@ gameloop:
 			je		game_loop_end	
 				; draw the game board
 			push	board
-			push	GWIDTH
-			push	396
+			push	24
+			push	432
 			call	render
 			add		esp, 12
 				; get an action from the user
@@ -837,7 +782,7 @@ gameloop:
 			mov		ecx, eax
 				; take the potential new pos for the player, and see if it's valid
 				; (W * y) + x = pos
-			mov		eax, GWIDTH
+			mov		eax, 24
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 				;call checkCharGame, passing it the current board index
@@ -956,16 +901,16 @@ pushRock:
 			;Load the address of the next space in the array 
 			;according to the direction the rock is moivng
 		nextDir1:
-			lea		ecx, [board + eax - GWIDTH]
-			lea		edx, [floorLayer + eax - GWIDTH]
+			lea		ecx, [board + eax - 24]
+			lea		edx, [floorLayer + eax - 24]
 			jmp		moveRock
 		nextDir2:
 			lea		ecx, [board + eax - 1]
 			lea		edx, [floorLayer + eax - 1]
 			jmp		moveRock
 		nextDir3:
-			lea		ecx, [board + eax + GWIDTH]
-			lea		edx, [floorLayer + eax + GWIDTH]
+			lea		ecx, [board + eax + 24]
+			lea		edx, [floorLayer + eax + 24]
 			jmp		moveRock
 		nextDir4:
 			lea		ecx, [board + eax + 1]
@@ -1005,34 +950,15 @@ init_board:
 		call	fopen
 		add		esp, 8
 		mov		DWORD [ebp - 4], eax
-			;load in the color for the walls
-		mov		BYTE [wallColor], 27
-		lea		eax, [wallColor + 1]
+			;read wallcolor 1 and 2
+		push	wallColor
 		push	DWORD [ebp - 4]
-		push	15
-		push	eax
-		call	fgets
-		add		esp, 12
-			;remove new line char
-		lea		eax, [wallColor]
-		push	eax
-		call	strlen
-		add		esp, 4
-		mov		BYTE [wallColor + eax - 1], 0
-
-		mov		BYTE [wallColor2], 27
-		lea		eax, [wallColor2 + 1]
+		call	readWallCol
+		add		esp, 8
+		push	wallColor2
 		push	DWORD [ebp - 4]
-		push	15
-		push	eax
-		call	fgets
-		add		esp, 12
-			;remove new line char
-		lea		eax, [wallColor2]
-		push	eax
-		call	strlen
-		add		esp, 4
-		mov		BYTE [wallColor2 + eax - 1], 0
+		call	readWallCol
+		add		esp, 8
 			;load the player's starting position
 		push	ypos
 		push	xpos
@@ -1044,10 +970,19 @@ init_board:
 		push	DWORD [ebp - 4]
 		call	fgetc
 		add		esp, 4
-			;load in the hint string
+
 		mov		ebx, 0
+		insertColor:
+		cmp		BYTE [helpStrColor + ebx], 0
+		je		colorInserted
+			mov		cl, BYTE [helpStrColor + ebx]
+			mov		BYTE [hintStr + ebx], cl
+		inc		ebx
+		jmp		insertColor
+		colorInserted:
+			;load in the hint string
 		mov		esi, 0
-		mov		BYTE [hintStr], 10
+		mov		BYTE [hintStr + ebx], 10
 		inc		ebx
 		topInitLoop:
 		cmp		esi, 3
@@ -1073,30 +1008,15 @@ init_board:
 		mov		BYTE [hintStr + ebx + 1], 0
 			; read the file data into the global buffer
 			; line-by-line so we can ignore the newline characters
-		mov		DWORD [ebp - 8], 0
-		read_loop:
-		cmp		DWORD [ebp - 8], GHEIGHT
-		je		read_loop_end
-				; find the offset (GWIDTH * counter)
-			mov		eax, GWIDTH
-			mul		DWORD [ebp - 8]
-			lea		ebx, [board + eax]
-				; read the bytes into the buffer
-			push	DWORD [ebp - 4]
-			push	GWIDTH
-			push	1
-			push	ebx
-			call	fread
-			add		esp, 16
-				; slurp up the newline
-			push	DWORD [ebp - 4]
-			call	fgetc
-			add		esp, 4
-		inc		DWORD [ebp - 8]
-		jmp		read_loop
-		read_loop_end:
+		lea		eax, [board]
+		push	23
+		push	24
+		push	eax
+		push	DWORD [ebp - 4]
+		call	readDisplay
+		add		esp, 16
 			;populate the door and floor layer
-		mov		edx, GWIDTH*GHEIGHT
+		mov		edx, 24*GHEIGHT
 		mov		edi, 0
 		objLoop:
 		cmp		edi, edx
@@ -1108,15 +1028,15 @@ init_board:
 			cmp		BYTE [board + edi], 'W'
 			je		yesWater
 			cmp		BYTE [board + edi], '!'
-			je		yesPDoor
+			je		yesDoor
 			cmp		BYTE [board + edi], '_'
-			je		yesLDoor
+			je		yesDoor
 			cmp		BYTE [board + edi], '%'
-			je		yesBDoor
+			je		yesDoor
 			cmp		BYTE [board + edi], '*'
-			je		yesgBDoor
+			je		yesDoor
 			cmp		BYTe [board + edi], '^'
-			je		yesGDoor
+			je		yesDoor
 			mov		BYTE [doorLayer + edi], 0
 			mov		BYTE [floorLayer + edi], 0
 			jmp		noObj
@@ -1132,20 +1052,9 @@ init_board:
 				mov		BYTE [board + edi], ' '
 				mov		BYTE [floorLayer + edi], 'W'
 				jmp		noObj
-			yesPDoor:
+			yesDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				jmp		noObj
-			yesLDoor:
-				mov		BYTE [doorLayer + edi], ' '
-				jmp		noObj
-			yesBDoor:
-				mov		BYTE [doorLayer + edi], ' '
-				jmp		noObj
-			yesgBDoor:
-				mov		BYTE [doorLayer + edi], ' '
-				jmp		noObj
-			yesGDoor:
-				mov		BYTE [doorLayer + edi], ' '
+				mov		BYTe [floorLayer + edi], 0
 			noObj:
 		inc		edi
 		jmp		objLoop
@@ -1178,7 +1087,7 @@ searchObject:
 		mov		esi, 0
 			;check the board layer for the repsective object
 		searchLoop:
-		cmp		esi, 396
+		cmp		esi, 432
 		je		searchPassed
 			cmp		BYTE [ebx + esi], 'R'
 			je		notCovered
@@ -1262,6 +1171,76 @@ colorFunc:
 			push	DWORD [colorCode]
 			pop		DWORD [lastColor]
 		redundantColor:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+skipLoop:
+	push	ebp
+	mov		ebp, esp
+			push	ebx
+			add		ebx, edi
+			mov		esi, 0
+			SkipLoopTop:
+			cmp		BYTE [ebx + esi + 1], ' '
+			je		skipLoopEnd
+				mov		dl, BYTE [ebx + esi + 1]
+				mov		BYTE [frameBuffer + ecx], dl
+				inc		ecx
+				inc		DWORD [ebp + 8]
+				inc		DWORD [ebp + 12]
+			inc		esi
+			jmp		SkipLoopTop
+			skipLoopEnd:
+			pop		ebx
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+readWallCol:
+	push	ebp
+	mov		ebp, esp
+		;load in the color for the walls
+		mov		ebx, DWORD [ebp + 12]
+		mov		BYTE [ebx], 27
+		lea		eax, [ebx + 1]
+		push	DWORD [ebp + 8]
+		push	15
+		push	eax
+		call	fgets
+		add		esp, 12
+			;remove new line char
+		lea		eax, [ebx]
+		push	eax
+		call	strlen
+		add		esp, 4
+		mov		BYTE [ebx + eax - 1], 0
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+;has four arguments, file handle, array, fgets buffer, increment value
+;ebp + 8, ebp + 12, ebp + 16, ebp + 20
+readDisplay:
+	push	ebp
+	mov		ebp, esp
+		mov		ebx, DWORD [ebp + 12]
+		mov		esi, 0
+		topDisplayLoop:
+			lea		edx, [ebx + esi]
+			push	DWORD [ebp + 8]
+			push	DWORD [ebp + 16]
+			push	edx
+			call	fgets
+			add		esp, 12
+			cmp		eax, 0
+			je		bottomDisplay
+				add		esi, DWORD [ebp + 20]
+				mov		BYTE [ebx + esi], 13
+				inc		esi
+				jmp		topDisplayLoop
+		bottomDisplay:
+		mov		BYTE [ebx + esi - 2], 10
 	mov		esp, ebp
 	pop		ebp
 	ret
