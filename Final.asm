@@ -119,7 +119,7 @@ main:
 loadBoards:
 	push	ebp
 	mov		ebp, esp
-		sub		esp, 8
+		sub		esp, 4
 			;open the file
 		push	mode_r
 		push	gameBoards
