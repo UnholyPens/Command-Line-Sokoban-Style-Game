@@ -14,7 +14,7 @@ segment .data
 		;these colors are part of colorCodeArray
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
-	pressPlateColor		db	27,"[1;48;5;240;38;5;248m",0
+	pressresColoror		db	27,"[1;48;5;240;38;5;248m",0
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
@@ -22,7 +22,7 @@ segment .data
 	activeBColor		db	27,"[38;5;13m",0
 	gemColor			db	27,"[38;5;9m",0
 	menuOptColor		db	27,"[38;5;240m",0
-	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressPlateColor, \
+	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressresColoror, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
 							activeBColor, gemColor, menuOptColor, wallColor2
 		;used for the board render
@@ -52,7 +52,7 @@ segment .bss
 	ypos		resd	1
 		;These variables store various data for rendering
 	colorCode	resd	1
-	plateCol	resd	1
+	resColor	resd	1
 	displayHint	resd	1
 	gameEnd		resd	1
 	menuEnd		resd	1
@@ -68,8 +68,8 @@ segment .bss
 	mainMenu	resb	1041
 	mainMenu2	resb	1041
 
-	wallColor	resb	14
-	wallColor2	resb	14
+	wallColor	resb	16
+	wallColor2	resb	16
 
 segment .text
 
@@ -357,7 +357,7 @@ charRender:
 				jmp		notFloor
 		rFPlate:
 			mov		DWORD [colorCode], 3
-			mov		DWORD [plateCol], 1
+			mov		DWORD [resColor], 1
 			mov		dl, 'P'
 			call	colorFunc
 		notFloor:
@@ -479,7 +479,7 @@ charRender:
 		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
 
-		cmp		DWORD [plateCol], 1
+		cmp		DWORD [resColor], 1
 		jne		nPlateGem
 			mov		esi, 0
 			resetColorLoop:
@@ -492,7 +492,7 @@ charRender:
 			jmp		resetColorLoop
 			endResetColorLoop:
 			mov		DWORD [colorCode], 101
-			mov		DWORD [plateCol], 0
+			mov		DWORD [resColor], 0
 		nPlateGem:
 	mov		esp, ebp
 	pop		ebp
