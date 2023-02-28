@@ -266,7 +266,6 @@ render:
 				print_board:
 				mov		dl, BYTE [ebx + edi]
 					;render the character
-				push	ebx
 				cmp		ebx, mainMenu2
 				je		isMenuRender
 				cmp		ebx, mainMenu
@@ -274,16 +273,14 @@ render:
 				isMenuRender:
 						;if rendering menu, do this
 					call	mcharRender
-					pop		ebx
 					jmp		print_end
 				isGameRender:
 						;if rendering game board, do this	
 					call	charRender
-					pop		ebx
 					jmp		print_end
 				print_end:
 					;if a menu opt was printed, skip past the selection text
-				cmp		DWORD [colorCode], 10
+				cmp		BYTE [ebx + edi], ')'
 				jne		notOpt
 					call	skipLoop
 				notOpt:
@@ -302,7 +299,6 @@ render:
 mcharRender:
 	push	ebp
 	mov		ebp, esp
-			mov		DWORD [colorCode], 101
 			cmp		BYTE [ebx + edi], ' '
 			je		mSpace
 			cmp		BYTE [ebx + edi], '-'
@@ -311,6 +307,8 @@ mcharRender:
 			je		isBorder
 			cmp		BYTE [ebx + edi], ')'
 			je		menuOpt
+			cmp		BYTE [ebx + edi], 31
+			jle		mAddChar
 			jmp		notBorder
 			mSpace:
 				jmp		mAddChar
@@ -322,7 +320,7 @@ mcharRender:
 				mov		dl, ' '
 				jmp		foundBorder
 			notBorder:
-			mov		DWORD [colorCode], 7
+				mov		DWORD [colorCode], 7
 			foundBorder:
 			call	colorFunc
 			mAddChar:
@@ -398,8 +396,10 @@ charRender:
 		je		rDoor
 		cmp		BYTE [ebx + edi], '^'
 		je		rDoor
+		wapadoodledoo:
 		jmp		rDefault
 		rWall:
+			mov		dl, '#'
 			cmp		BYTE [ebx + edi], 'T'
 			je		wall2
 				mov		DWORD [colorCode], 11
@@ -478,22 +478,25 @@ charRender:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
-
-		cmp		DWORD [resColor], 1
-		jne		nPlateGem
-			mov		esi, 0
-			resetColorLoop:
-			cmp		BYTE [resetColor + esi],0
-			je		endResetColorLoop
-				mov		al, BYTE [resetColor + esi]
-				mov		BYTE [frameBuffer + ecx], al
-				inc		ecx
-			inc		esi
-			jmp		resetColorLoop
-			endResetColorLoop:
-			mov		DWORD [colorCode], 101
-			mov		DWORD [resColor], 0
-		nPlateGem:
+		mov		esi, DWORD [colorCode]
+		cmp		DWORD [lastColor], esi
+		je		noReset
+			cmp		DWORD [resColor], 1
+			jne		nPlateGem
+				mov		esi, 0
+				resetColorLoop:
+				cmp		BYTE [resetColor + esi],0
+				je		endResetColorLoop
+					mov		al, BYTE [resetColor + esi]
+					mov		BYTE [frameBuffer + ecx], al
+					inc		ecx
+				inc		esi
+				jmp		resetColorLoop
+				endResetColorLoop:
+				mov		DWORD [colorCode], 101
+				mov		DWORD [resColor], 0
+			nPlateGem:
+		noReset:
 	mov		esp, ebp
 	pop		ebp
 	ret
