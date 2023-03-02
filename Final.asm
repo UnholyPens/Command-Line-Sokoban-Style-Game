@@ -234,14 +234,13 @@ render:
 					cmp		ebx, mainMenu
 					jne		printPlayer
 					menuPrint:
-							;if printing the menu, do this
 						lea		eax, [menuOptColor]
 						mov		DWORD [lastColor], 10
 						mov		DWORD [colorCode], 10
 						push	'>'
 						jmp		playerFound
 					printPlayer:
-							;if printing game board, do this
+						call	rColor
 						lea		eax, [playerColor]
 						mov		DWORD [lastColor], 99
 						push	'O'
@@ -396,9 +395,11 @@ charRender:
 		je		rDoor
 		cmp		BYTE [ebx + edi], '^'
 		je		rDoor
-		wapadoodledoo:
+		cmp		BYTE [ebx + edi], 31
+		jle		addChar
 		jmp		rDefault
 		rWall:
+			mov		DWORD [resColor], 1
 			mov		dl, '#'
 			cmp		BYTE [ebx + edi], 'T'
 			je		wall2
@@ -478,24 +479,28 @@ charRender:
 			;load the displayed character into the frame buffer
 		mov		BYTE [frameBuffer + ecx], dl
 		inc		ecx
-		mov		esi, DWORD [colorCode]
-		cmp		DWORD [lastColor], esi
-		je		noReset
-			cmp		DWORD [resColor], 1
-			jne		nPlateGem
-				mov		esi, 0
-				resetColorLoop:
-				cmp		BYTE [resetColor + esi],0
-				je		endResetColorLoop
-					mov		al, BYTE [resetColor + esi]
-					mov		BYTE [frameBuffer + ecx], al
-					inc		ecx
-				inc		esi
-				jmp		resetColorLoop
-				endResetColorLoop:
-				mov		DWORD [colorCode], 101
-				mov		DWORD [resColor], 0
-			nPlateGem:
+		cmp		DWORD [resColor], 1
+		jne		noReset
+			cmp		BYTE [floorLayer + edi + 1], 'P'
+			je		noReset
+			cmp		BYTE [ebx + edi + 1], 'T'
+			je		noReset
+			cmp		BYTE [ebx + edi + 1], 'O'
+			je		noReset
+			cmp		BYTE [ebx + edi + 1], '|'
+			je		noReset
+			cmp		BYTE [ebx + edi + 1], '-'
+			je		noReset
+			cmp		BYTE [ebx + edi + 1], ' '
+			jne		notSpace
+				cmp		BYTE [floorLayer + edi], 'P'
+				jne		noReset
+					call	rColor
+					jmp		noReset
+			notSpace:
+			cmp		BYTE [ebx + edi + 1], 31
+			jle		noReset
+				call	rColor
 		noReset:
 	mov		esp, ebp
 	pop		ebp
@@ -1148,6 +1153,7 @@ searchObject:
 colorFunc:	
 	push	ebp
 	mov		ebp, esp
+		push	eax
 		sub		esp, 4
 		;use the num in colorCode to load the correct code into edi
 		mov		esi, DWORD[colorCode]
@@ -1174,6 +1180,7 @@ colorFunc:
 			push	DWORD [colorCode]
 			pop		DWORD [lastColor]
 		redundantColor:
+		pop		eax
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -1244,6 +1251,24 @@ readDisplay:
 				jmp		topDisplayLoop
 		bottomDisplay:
 		mov		BYTE [ebx + esi - 2], 10
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+rColor:
+	push	ebp
+	mov		ebp, esp
+		mov		esi, 0
+		resetColorLoop:
+		cmp		BYTE [resetColor + esi], 0
+		je		endResetColorLoop
+			mov		al, BYTE [resetColor + esi]
+			mov		BYTE [frameBuffer + ecx], al
+			inc		ecx
+		inc		esi
+		jmp		resetColorLoop
+		endResetColorLoop:
+		mov		DWORD [resColor], 0
 	mov		esp, ebp
 	pop		ebp
 	ret
