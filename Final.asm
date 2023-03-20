@@ -1,6 +1,3 @@
-; the size of the game screen in characters
-%define GHEIGHT 18
-
 segment .data
 		;this file contains a list of all the game boards,
 		;and is used to dynamically fill boardArray
@@ -51,6 +48,7 @@ segment .bss
 	xpos		resd	1
 	ypos		resd	1
 		;These variables store various data for rendering
+	foundOpt	resd	1
 	colorCode	resd	1
 	resColor	resd	1
 	displayHint	resd	1
@@ -63,11 +61,10 @@ segment .bss
 		;This array stores the names of all the game boards, and is
 		;filled in loadBoards
 	boardArray	resb	2201
-	spacePressed resd	1
-		;stores the main menu
+		;stores the main menu(s)
 	mainMenu	resb	1041
 	mainMenu2	resb	1041
-
+		;stores the color codes for the wall colors
 	wallColor	resb	16
 	wallColor2	resb	16
 
@@ -358,7 +355,6 @@ charRender:
 			mov		dl, 'P'
 			call	colorFunc
 		notFloor:
-		
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
 		cmp		BYTE [ebx + edi], 'O'
@@ -483,6 +479,8 @@ charRender:
 		jne		noReset
 			cmp		BYTE [floorLayer + edi + 1], 'P'
 			je		noReset
+			cmp		BYTE [ebx + edi + 1], 31
+			jle		noReset
 			cmp		BYTE [ebx + edi + 1], 'T'
 			je		noReset
 			cmp		BYTE [ebx + edi + 1], 'O'
@@ -492,29 +490,26 @@ charRender:
 			cmp		BYTE [ebx + edi + 1], '-'
 			je		noReset
 			cmp		BYTE [ebx + edi + 1], ' '
-			jne		notSpace
+			jne		yesReset
 				cmp		BYTE [floorLayer + edi], 'P'
-				jne		noReset
-					call	rColor
+				je		yesReset
 					jmp		noReset
-			notSpace:
-			cmp		BYTE [ebx + edi + 1], 31
-			jle		noReset
-				call	rColor
+			yesReset:
+			call	rColor
+			mov		DWORD [lastColor], 50
 		noReset:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;has two arguments, xpos and ypos
+;same as gameloop, just for the menu
 menuLoop:
 	push	ebp
 	mov		ebp, esp
-
 		push	DWORD [ebp + 12]
 		pop		DWORD [xpos]
 		push	DWORD [ebp + 16]
 		pop		DWORD [ypos]
-		mov		DWORD [menuEnd], 0
 		menu_loop:
 			cmp		DWORD [menuEnd], 1
 			je		menu_loop_end
@@ -526,12 +521,11 @@ menuLoop:
 			add		esp, 12
 				; get an action from the user
 			call	getchar
+			push	eax
 				; store the current position
-				; we will test if the new position is legal
-				; if not, we will restore these
 			mov		esi, DWORD [xpos]
 			mov		edi, DWORD [ypos]
-				; check where to move the player based on input
+				;based on input, change the cursor position
 			cmp		eax, 'w'
 			je 		menuUp
 			cmp		eax, 'a'
@@ -555,18 +549,14 @@ menuLoop:
 			menuRight:
 				inc		DWORD [xpos]
 			menuSpace:
-
-			push	eax
-			
 			mov		ecx, 0
 			mov		eax, 52
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
-			
+				; check where to move the player based on input
 			push	DWORD [ebp + 8]
 			call	checkCharMenu
 			add		esp, 8
-
 		jmp		menu_loop
 		menu_loop_end:
 		mov		DWORD [menuEnd], 0
@@ -576,47 +566,34 @@ menuLoop:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;has two arguments, saved user input, and the cursor location in the board
+;determines what to do based on what the user inputed
 checkCharMenu:
 	push	ebp
 	mov		ebp, esp	
 		mov		ebx, DWORD [ebp + 8]
-		
 		cmp		DWORD [ebp + 12], ' '
 		jne		checkMove
+			push	DWORD [xpos]
+			push	DWORD [ypos]
 			cmp		ebx, mainMenu
 			jne		notMain1
 				cmp		DWORD [xpos], 14
 				jne		notGame
-						;save cursor position
-					push	DWORD [xpos]
-					push	DWORD [ypos]
 						;enter the level select screen
 					push	8
 					push	5
 					push	mainMenu2
 					call 	menuLoop
 					add		esp, 12
-						;retrieve cursor position
-					pop		DWORD [ypos]
-					pop		DWOrD [xpos]
-					jmp		moveCursor
+					jmp		checkComplete
 				notGame:
 						;if close selected, exit screen
 					inc		DWORD [menuEnd]
-					jmp		moveCursor
-				notClose:
-				jmp		checkMove
+					jmp		checkComplete
 			notMain1:
 				cmp		DWORD [ypos], 18
-				jne		cancelOpt
-						;if cancel selected, exit screen
-					inc		DWORD [menuEnd]
-					jmp		moveCursor
-				cancelOpt:
-						;save cursor location for when gameloop ends
-					push	DWORD [xpos]
-					push	DWORD [ypos]
+				je		notGame
 						;using the cursor location, determine both the level offset 
 						;and the world offset within boardArray					
 					sub		DWORD [ypos], 8
@@ -629,86 +606,82 @@ checkCharMenu:
 					push	eax
 					call	gameloop
 					add		esp, 8
-						;retrieve cursor location
-					pop		DWORD [ypos]
-					pop		DWORD [xpos]
 						;reset game state
 					mov		DWORD [gameEnd], 0
-					jmp		moveCursor
-				jmp		checkMove
+			checkComplete:
+			pop		DWORD [ypos]
+			pop		DWORD [xpos]
+			jmp		moveCursor
 		checkMove:
-		mov		edx, 0
 			;get cursor offset
 		add		ebx, eax
 			;If moving up or down, seek through the arry appropriately to find 
 			;an acceptable cursor location
+		push	DWORD [ebp + 12]
+		push	'|'
 		cmp		DWORD [ebp + 12], 'w'
 		je		walkBackTop
 		cmp		DWORD [ebp + 12], 's'
 		jne		notUpDown
 		walkBackTop:
-				;seek eiither left or right edge, depending on whether
-				;up or down was inputed.
-			seekEdge:
-			cmp		BYTE [ebx + edx], '|'
-			je		seekEdgeBottom
-				cmp		BYTE [ebx + edx], ')'
-				jne		seekEdgeOpt
-					add		DWORD [xpos], edx
-					jmp		moveCursor
-				seekEdgeOpt:
-			cmp		DWORD [ebp + 12], 's'
-			jne		seekEdgeRight
-				dec		edx
-				jmp		seekEdge
-			seekEdgeRight:
-				inc		edx
-				jmp		seekEdge
-			seekEdgeBottom:
-				;seek null at beginning or end of array, edpending on whether 
-				;up or down was inputed.
-			mov		edx, 0
-			seekEnd:
-			cmp		BYTE [ebx + edx], 0
-			je		seekComplete
-				cmp		BYTE [ebx + edx], ')'
-				jne		seekEndOpt
-					add		DWORD [xpos], edx
-					jmp		moveCursor
-				seekEndOpt:
-			cmp		DWORD [ebp + 12], 's'
-			jne		seekLeft
-				inc		edx
-				jmp		seekEnd
-			seekLeft:
-				dec		edx
-				jmp		seekEnd
-			seekEndBottom:
+				;seek eiither left or right edge, depending on whether up or down was inputed.
+			push	'w'
+			call	walkFunc
+				;seek null at beginning or end of array, edpending on whether up or down was inputed.
+			cmp		DWORD [foundOpt], 1
+			je		validMove
+				mov		DWORD [ebp - 8], 0
+				mov		DWORD [ebp - 12], 's'
+				call	walkFunc
+				cmp		DWORD [foundOpt], 1
+				je		validMove
+					jmp		noMove
 		notUpDown:
-			;if a or d is pressed, scan in the appropriate direction for a wall
-			;if not found, check to see if it's a menu opt. if it isn't, keep checking
-		cmp		BYTE [ebx + edx], '|'
-		je		seekComplete
-			cmp		BYTE [ebx + edx], ')'
-			jne		notOption
-				add		DWORD [xpos], edx
-				jmp		moveCursor
-			notOption:
-		cmp		DWORD [ebp + 12], 'a'
-		je		mvLeft
-			inc		edx
-			jmp		notUpDown
-		mvLeft:
-			dec		edx
-			jmp		notUpDown
-		seekComplete:
-		mov		DWORD [xpos], esi
-		mov		DWORD [ypos], edi
+				;if a or d is pressed, scan in the appropriate direction
+			push	'd'
+			call	walkFunc
+			cmp		DWORD [foundOpt], 1
+			je		validMove
+		noMove:
+			mov		DWORD [xpos], esi
+			mov		DWORD [ypos], edi
+		validMove:
+			add		esp, 12
 		moveCursor:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;three arguments, character to compare to, character to look for, and user input
+;walks through the menu board, until it either finds a stop or a viable option to move to
+walkFunc:
+	push	ebp
+	mov		ebp, esp
+		mov		edx, 0
+		mov		DWORD [foundOpt], 0
+		mov		eax, DWORD [ebp + 12]
+		mov		ecx, DWORD [ebp + 8]
+		topWalk:
+		cmp		BYTE [ebx + edx], al
+		je		seekComplete
+			cmp		BYTE [ebx + edx], ')'
+			jne		notOption
+				add		DWORD [xpos], edx
+				inc		DWORD [foundOpt]
+				jmp		seekComplete
+			notOption:
+		cmp		DWORD [ebp + 16], ecx
+		jne		mvLeft
+			inc		edx
+			jmp		topWalk
+		mvLeft:
+			dec		edx
+			jmp		topWalk
+		seekComplete:
+	mov		esp, ebp
+	pop		ebp
+	ret
+;has two arguments -- 
+;everything that happens while playing the game is in here
 gameloop:
 	push	ebp
 	mov		ebp, esp
@@ -814,7 +787,7 @@ gameloop:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;handles what should happen once input is received
 checkCharGame:
 	push	ebp
 	mov		ebp, esp
@@ -892,7 +865,7 @@ checkCharGame:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;handles the interactions between the player and movable objects
 pushRock:
 	push	ebp
 	mov		ebp, esp
@@ -945,7 +918,7 @@ pushRock:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;read in the data from the respective level file
 init_board:
 	push	ebp
 	mov		ebp, esp
@@ -1024,7 +997,7 @@ init_board:
 		call	readDisplay
 		add		esp, 16
 			;populate the door and floor layer
-		mov		edx, 24*GHEIGHT
+		mov		edx, 24*18
 		mov		edi, 0
 		objLoop:
 		cmp		edi, edx
@@ -1074,7 +1047,7 @@ init_board:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;moves door characters between board and doorlayer
 layerSwap:
 	push 	ebp
 	mov		ebp, esp
@@ -1085,7 +1058,7 @@ layerSwap:
 	mov		esp, ebp
 	pop 	ebp
 	ret
-	
+;scans through board and opens/closes doors depending on what's found	
 searchObject:
 	push	ebp
 	mov		ebp, esp
@@ -1149,7 +1122,7 @@ searchObject:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;prints out a color code depending on the byte to be printed
 colorFunc:	
 	push	ebp
 	mov		ebp, esp
@@ -1184,7 +1157,7 @@ colorFunc:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;skips over the text following a menu option
 skipLoop:
 	push	ebp
 	mov		ebp, esp
@@ -1206,7 +1179,7 @@ skipLoop:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;reads in both wallcolor1 and wallcolor2
 readWallCol:
 	push	ebp
 	mov		ebp, esp
@@ -1230,7 +1203,7 @@ readWallCol:
 	ret
 
 ;has four arguments, file handle, array, fgets buffer, increment value
-;ebp + 8, ebp + 12, ebp + 16, ebp + 20
+;reads in the game board
 readDisplay:
 	push	ebp
 	mov		ebp, esp
@@ -1254,7 +1227,7 @@ readDisplay:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;prints a reset code
 rColor:
 	push	ebp
 	mov		ebp, esp
