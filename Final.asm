@@ -21,7 +21,7 @@ segment .data
 	menuOptColor		db	27,"[38;5;240m",0
 	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressresColoror, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor, menuOptColor, wallColor2
+							activeBColor, gemColor, menuOptColor, wallColor2, playerColor
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -216,7 +216,7 @@ render:
 		mov		eax, DWORD [ebp + 8]
 		cmp		DWORD [ebp - 4], eax
 		je		y_loop_end
-				;if width counter == width, print new line and carriage return
+					;if width counter == width, print new line and carriage return
 					;retrieve the next board character to be printed
 					; check if (xpos,ypos)=(x,y)
 					;save the value of eax
@@ -231,31 +231,18 @@ render:
 					cmp		ebx, mainMenu
 					jne		printPlayer
 					menuPrint:
-						lea		eax, [menuOptColor]
-						mov		DWORD [lastColor], 10
 						mov		DWORD [colorCode], 10
-						push	'>'
+						mov		dl, '>'
 						jmp		playerFound
 					printPlayer:
 						call	rColor
-						lea		eax, [playerColor]
-						mov		DWORD [lastColor], 99
-						push	'O'
+						mov		DWORD [colorCode], 12
+						mov		dl, 'O'
 					playerFound:
 						;add the respective color code to the frame buffer
-					mov		esi, 0
-					selectColorLoop:
-					cmp		BYTE [eax + esi], 0
-					je		endSelectColorLoop
-						mov		dl, BYTE [eax + esi]
-						mov		BYTE [frameBuffer + ecx], dl
-						inc		ecx
-					inc		esi
-					jmp		selectColorLoop
-					endSelectColorLoop:
+					call	colorFunc
 						;pop off the character pushed to the stack earlier,
 						;then add it to the frame buffer
-					pop		edx
 					mov		BYTE [frameBuffer + ecx], dl
 					inc		ecx
 					jmp		print_end
