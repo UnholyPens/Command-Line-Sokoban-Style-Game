@@ -331,7 +331,7 @@ charRender:
 			jne		floorRock
 				mov		DWORD [colorCode], 4
 				mov		dl, 'W'
-				jmp		rDefault
+				jmp		notFloor
 			floorRock:
 				mov		DWORD [colorCode], 7
 				mov		dl, 'R'
@@ -340,7 +340,6 @@ charRender:
 			mov		DWORD [colorCode], 3
 			mov		DWORD [resColor], 1
 			mov		dl, 'P'
-			call	colorFunc
 		notFloor:
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
@@ -392,15 +391,13 @@ charRender:
 				mov		DWORD [colorCode], 0
 				jmp		rDefault
 		rSpace:
-			cmp		BYTE [floorLayer + edi], 'P'
-			je		addChar
-			cmp		BYTE [floorLayer + edi], 'R'
-			je		rDefault
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
 				push	DWORD [doorLayer + edi]
 				jmp		isDoor
 			isSpace:
+			cmp		BYTE [floorLayer + edi], 0
+			jne		rDefault
 			mov		dl, ' '
 			jmp		addChar
 		rKey:
@@ -466,6 +463,8 @@ charRender:
 		jne		noReset
 			cmp		BYTE [floorLayer + edi + 1], 'P'
 			je		noReset
+			cmp		BYTE [floorLayer + edi + 1], 'W'
+			je		yesReset
 			cmp		BYTE [ebx + edi + 1], 31
 			jle		noReset
 			cmp		BYTE [ebx + edi + 1], 'T'
@@ -912,6 +911,14 @@ init_board:
 			; FILE* and loop counter
 			; ebp-4, ebp-8
 		sub		esp, 8
+			; clear doorLayer and floorLayer
+		xor eax, eax 
+		mov ecx, 432 ;Size of the Array, in Bytes
+		lea edi, [doorLayer] ;Location of Array start, in RAM
+		cld
+		rep stosb
+		lea edi, [floorLayer] ;Location of Array start, in RAM
+		rep stosb
 			; open the file
 		push	mode_r
 		push	DWORD[ebp + 8]
