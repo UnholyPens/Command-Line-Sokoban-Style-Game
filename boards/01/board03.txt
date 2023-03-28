@@ -1,5 +1,5 @@
-[1;38;5;103m
-[38;5;22m
+[48;5;242m
+[48;5;22m
 5 8
 The teal door will open when all buttons are turned on.
 If you need to see any introductory notes again, press 'h'. 

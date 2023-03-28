@@ -1,5 +1,5 @@
-[1;38;5;103m
-[38;5;22m
+[48;5;242m
+[48;5;22m
 5 8
 Pink doors will open only when the teal doors are shut. That is to say, 
 the pink doors will open when at least one of the buttons is turned off.

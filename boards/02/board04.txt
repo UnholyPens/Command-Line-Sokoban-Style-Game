@@ -1,5 +1,5 @@
-[1;38;5;22m
-[1;38;5;101m
+[48;5;22m
+[48;5;101m
 4 7
 The red door will open if all gems are collected.
 

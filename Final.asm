@@ -11,7 +11,7 @@ segment .data
 		;these colors are part of colorCodeArray
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
-	pressresColoror		db	27,"[1;48;5;240;38;5;248m",0
+	pressColor			db	27,"[1;48;5;240;38;5;248m",0
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
 	stairsColor			db	27,"[38;5;124m",0
@@ -19,7 +19,7 @@ segment .data
 	activeBColor		db	27,"[38;5;13m",0
 	gemColor			db	27,"[38;5;9m",0
 	menuOptColor		db	27,"[38;5;240m",0
-	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressresColoror, \
+	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressColor, \
 							leverColor, pressDoorColor, stairsColor, buttonColor, \
 							activeBColor, gemColor, menuOptColor, wallColor2, playerColor
 		;used for the board render
@@ -382,7 +382,7 @@ charRender:
 		jmp		rDefault
 		rWall:
 			mov		DWORD [resColor], 1
-			mov		dl, '#'
+			mov		dl, ' '
 			cmp		BYTE [ebx + edi], 'T'
 			je		wall2
 				mov		DWORD [colorCode], 11
@@ -463,24 +463,12 @@ charRender:
 		jne		noReset
 			cmp		BYTE [floorLayer + edi + 1], 'P'
 			je		noReset
-			cmp		BYTE [floorLayer + edi + 1], 'W'
-			je		yesReset
 			cmp		BYTE [ebx + edi + 1], 31
 			jle		noReset
 			cmp		BYTE [ebx + edi + 1], 'T'
 			je		noReset
 			cmp		BYTE [ebx + edi + 1], 'O'
 			je		noReset
-			cmp		BYTE [ebx + edi + 1], '|'
-			je		noReset
-			cmp		BYTE [ebx + edi + 1], '-'
-			je		noReset
-			cmp		BYTE [ebx + edi + 1], ' '
-			jne		yesReset
-				cmp		BYTE [floorLayer + edi], 'P'
-				je		yesReset
-					jmp		noReset
-			yesReset:
 			call	rColor
 			mov		DWORD [lastColor], 50
 		noReset:
@@ -1120,8 +1108,7 @@ searchObject:
 colorFunc:	
 	push	ebp
 	mov		ebp, esp
-		push	eax
-		sub		esp, 4
+		push	edx
 		;use the num in colorCode to load the correct code into edi
 		mov		esi, DWORD[colorCode]
 			;if the character being loaded into the frame buffer isn't the same as the last one,
@@ -1132,22 +1119,20 @@ colorFunc:
 		je		redundantColor
 			colorAnyway:
 			mov		esi, DWORD[colorCodeArray + esi * 4]
-			mov		DWORD [ebp - 4], 0
-			mov		eax, DWORD [ebp - 4]
+			mov		eax, 0
 			colorLoop:
 			cmp		BYTE [esi + eax], 0
 			je		endColorLoop
-				mov		al, BYTE [esi + eax]
-				mov		BYTE [frameBuffer + ecx], al
+				mov		dl, BYTE [esi + eax]
+				mov		BYTE [frameBuffer + ecx], dl
 				inc		ecx
-			inc		DWORD [ebp - 4]
-			mov		eax, DWORD [ebp - 4]
+			inc		eax
 			jmp		colorLoop
 			endColorLoop:
 			push	DWORD [colorCode]
 			pop		DWORD [lastColor]
 		redundantColor:
-		pop		eax
+		pop		edx
 	mov		esp, ebp
 	pop		ebp
 	ret
