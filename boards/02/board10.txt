@@ -1,19 +1,23 @@
-8 7
-You could press page down to undo your moves, if this were a good game.
+[48;5;22m
+[48;5;52m
+5 4
+The red door will open if all gems are collected.
 
 
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-T   TGT    TBT    TT
-T RR*PP  R T T    TT
-T   T      T | S  TT
-T  R%PP    ^ T    TT
-T   T T   GT T    TT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+----------------------
+|TTTT       WWWW   T |
+|T  R   R  WWWOOOOO  |
+|T         WWWO   O  |
+|T     I R WOOO S O  |
+|  R     G  & !   O  |
+| T   R  I WOOOOOOO  |
+|  TT   TT WWWT      |
+|  T   TTT WWW TTTTT |
+| TT TTTT WWW TT  TT |
+|TTTTTTTT WWWTTTT TTT|
+|TTTTT T TWWW TTTTTTT|
+|TT TT TTTWWW TTT TTT|
+|T  T TT  WWWTT TT TT|
+|TT TT  T WWWT TTT  T|
+| T  T    WWW     T  |
+----------------------

@@ -1,4 +1,4 @@
-[48;5;242m
+[48;5;8m
 [48;5;22m
 5 8
 The teal door will open when all buttons are turned on.

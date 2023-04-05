@@ -1,19 +1,23 @@
-4 7
-You can use an object to hold open a door.
+[48;5;22m
+[48;5;52m
+5 4
+The red door will open if all gems are collected.
 
 
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TT     T    T     TT
-TT     T    T     TT
-TT b   % R  *  S  TT
-TT     T    T     TT
-TT     T    T     TT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+----------------------
+|TTTT       WWWW   T |
+|T  R   R  WWWOOOOO  |
+|T         WWhO   O  |
+|T       R WWW^ S O  |
+|  R       WWWO   O  |
+| T   R    WhWOOOOO  |
+|  TT   TT WWWT      |
+|  T   TTT WWW TTTTT |
+| TT TTTTTWWW TT  TT |
+|TTTTTTTTThWWTTTT TTT|
+|TTTTT T TWWW TTTTTTT|
+|TT TT TTTWWW TTT TTT|
+|T  T TT  WWWTT TT TT|
+|TT TT  T WWWT TTT  T|
+| T  T    WWW     T  |
+----------------------

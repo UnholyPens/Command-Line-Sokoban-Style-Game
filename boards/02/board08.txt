@@ -1,19 +1,23 @@
-4 7
-Sometimes you need to think about your actions before being hasty.
+[48;5;22m
+[48;5;52m
+5 4
+The red door will open if all gems are collected.
 
 
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TT     T    T     TT
-TT     T  g T     TT
-T^ R        |  S  TT
-TT     T  P T     TT
-TT     T    T     TT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+----------------------
+|TTTT       WWWW   T |
+|T  I    I WWWOOOOO  |
+|T         WWWO   O  |
+|T     I   WWW! S O  |
+|  I     I WWWO   O  |
+| T   I    WWWOOOOO  |
+|  TbO%OTT WWWT      |
+|  T O OTT WWW TTTTT |
+| TT O*OTTWWW TT  TT |
+|TTTTOPOTTWWWTTTT TTT|
+|TTTTOOO TWWW TTTTTTT|
+|TT TT TTTWWW TTT TTT|
+|T  T TT  WWWTT TT TT|
+|TT TT  T WWWT TTT  T|
+| T  T    WWW     T  |
+----------------------

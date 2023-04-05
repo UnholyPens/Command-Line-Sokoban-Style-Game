@@ -1,19 +1,23 @@
-4 7
-Gray doors will open only when the teal doors are shut.
-That is to say, the gray doors will open when at least one of the buttons
-is turned off.
-*TTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TT     T    T     TT
-TT     T    T     TT
-TT b   %       S  TT
-TT     T    T     TT
-TT     T    T     TT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
-TTTTTTTTTTTTTTTTTTTT
+[48;5;22m
+[48;5;101m
+5 4
+The red door will open if all gems are collected.
+
+
+----------------------
+|TTTT      WWWWW   T |
+|T       TWWWWW      |
+|T      IIWWWWW      |
+|T     IIIWWWWW S    |
+|     III WWWWW      |
+| T     T WWWWW      |
+|  TT   T WWWWW      |
+|  T   TTWWWWW TTTTT |
+| TT TTTTWWWWWTT  TT |
+|TTTTTTTTWWWWWTTT TTT|
+|TTTTT T WWWWWTTTTTTT|
+|TT TT TTWWWWWTTT TTT|
+|T  T TT WWWWWT TT TT|
+|TT TT  TWWWWW TTT  T|
+| T  T   WWWWW    T  |
+----------------------

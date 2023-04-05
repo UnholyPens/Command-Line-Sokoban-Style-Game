@@ -1,4 +1,4 @@
-[48;5;242m
+[48;5;8m
 [48;5;101m
 5 8
 The object of the game is to walk to the staircase in each game stage. 

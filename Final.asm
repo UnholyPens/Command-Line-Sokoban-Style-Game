@@ -11,6 +11,7 @@ segment .data
 		;these colors are part of colorCodeArray
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
+	rock2Color			db	27,"[38;5;7m",0
 	pressColor			db	27,"[1;48;5;240;38;5;248m",0
 	leverColor			db	27,"[38;5;69m",0
 	pressDoorColor		db	27,"[38;5;242m",0
@@ -19,9 +20,10 @@ segment .data
 	activeBColor		db	27,"[38;5;13m",0
 	gemColor			db	27,"[38;5;9m",0
 	menuOptColor		db	27,"[38;5;240m",0
-	colorCodeArray		dd 	wallColor, keyColor, rockColor, pressColor, \
-							leverColor, pressDoorColor, stairsColor, buttonColor, \
-							activeBColor, gemColor, menuOptColor, wallColor2, playerColor
+	colorCodeArray		dd 	wallColor,    keyColor,       rockColor,   pressColor, \
+							leverColor,   pressDoorColor, stairsColor, buttonColor, \
+							activeBColor, gemColor,       menuOptColor,wallColor2, \
+							playerColor,  rock2Color
 		;used for the board render
 	boardFormat			db "%s",0
 		; used to change the terminal mode
@@ -67,6 +69,7 @@ segment .bss
 		;stores the color codes for the wall colors
 	wallColor	resb	16
 	wallColor2	resb	16
+	colorArray	resb	128
 
 segment .text
 
@@ -88,6 +91,7 @@ segment .text
 main:
 	push	ebp
 	mov		ebp, esp
+		call	colorFill
 			; put the terminal in raw mode so the game works nicely
 		call	raw_mode_on
 			;populate boardArray with all the game boards
@@ -282,24 +286,24 @@ render:
 mcharRender:
 	push	ebp
 	mov		ebp, esp
+			cmp		BYTE [colorArray + edx], 0
+			je		noChange
+				xor		eax, eax
+				mov		al, BYTE [colorArray + edx]
+				mov		DWORD [colorCode], eax
+			noChange:
 			cmp		BYTE [ebx + edi], ' '
-			je		mSpace
+			je		mAddChar
 			cmp		BYTE [ebx + edi], '-'
-			je		isBorder
+			je		foundBorder
 			cmp		BYTE [ebx + edi], '|'
-			je		isBorder
+			je		foundBorder
 			cmp		BYTE [ebx + edi], ')'
 			je		menuOpt
 			cmp		BYTE [ebx + edi], 31
 			jle		mAddChar
 			jmp		notBorder
-			mSpace:
-				jmp		mAddChar
-			isBorder:	
-				mov		DWORD [colorCode], 4
-				jmp		foundBorder
 			menuOpt:
-				mov		DWORD [colorCode], 10
 				mov		dl, ' '
 				jmp		foundBorder
 			notBorder:
@@ -323,6 +327,8 @@ charRender:
 		je		rFWater
 		cmp		BYTE [floorLayer + edi], 'R'
 		je		rFWater
+		cmp		BYTE [floorLayer + edi], 'I'
+		je		rFWater
 		cmp		BYTE [floorLayer + edi], 'P'
 		je		rFPlate
 		jmp		notFloor
@@ -340,6 +346,7 @@ charRender:
 			mov		DWORD [colorCode], 3
 			mov		DWORD [resColor], 1
 			mov		dl, 'P'
+			call	colorFunc
 		notFloor:
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
@@ -353,7 +360,9 @@ charRender:
 		je		rSpace
 		cmp		BYTE [ebx + edi], 'K'
 		je		rKey
-		cmp		BYTE [ebx + edi], 'R'
+		cmp		BYTE [ebx + edi], 'R'	
+		je		rRock
+		cmp		BYTE [ebx + edi], 'I'
 		je		rRock
 		cmp		BYTE [ebx + edi], 'L'
 		je		rLever
@@ -376,6 +385,8 @@ charRender:
 		cmp		BYTE [ebx + edi], '*'
 		je		rDoor
 		cmp		BYTE [ebx + edi], '^'
+		je		rDoor
+		cmp		BYTE [ebx + edi], '&'
 		je		rDoor
 		cmp		BYTE [ebx + edi], 31
 		jle		addChar
@@ -404,9 +415,14 @@ charRender:
 			mov		DWORD [colorCode], 1
 			jmp		rDefault
 		rRock:
-			mov		DWORD [colorCode], 2
 			mov		dl, 'R'
-			jmp		rDefault
+			cmp		BYTE [ebx + edi], 'I'
+			je		lightRock
+				mov		DWORD [colorCode], 2
+				jmp		rDefault
+			lightRock:
+				mov		DWORD [colorCode], 13
+				jmp		rDefault
 		rLever:
 			mov		DWORD [colorCode], 4
 			jmp		rDefault
@@ -434,6 +450,8 @@ charRender:
 			je		notGBDoor
 			mov		DWORD [colorCode], 9
 			cmp		BYTE [ebp - 4], '^'
+			je		notGDoor
+			cmp		BYTE [ebp - 4], '&'
 			je		notGDoor
 			jmp		defaultDoor
 			notPDoor:
@@ -583,7 +601,7 @@ checkCharMenu:
 						;reset game state
 					mov		DWORD [gameEnd], 0
 			checkComplete:
-			pop		DWORD [ypos]
+ 			pop		DWORD [ypos]
 			pop		DWORD [xpos]
 			jmp		moveCursor
 		checkMove:
@@ -751,9 +769,7 @@ gameloop:
 				jne		newLevel
 					inc		DWORD [ebp + 8]
 					mov		DWORD [ebp + 12], 0
-					jmp		resetGame
 				newLevel:
-					;inc		DWORD [ebp + 12]
 					jmp		resetGame
 			notComplete:
 		jmp		game_loop
@@ -772,6 +788,8 @@ checkCharGame:
 		je		checkDone
 		cmp		BYTE [board + eax], 'R'
 		je		pRock
+		cmp		BYTE [board + eax], 'I'
+		je		pRock
 		cmp		BYTE [board + eax], 'L'
 		je		pLever
 		cmp		BYTE [board + eax], 'l'
@@ -788,7 +806,13 @@ checkCharGame:
 		je		pGem
 		jmp		pDefault
 		pRock:
+			push	ebx
+			lea		ebx, [board + eax]
+			lea		eax, [floorLayer + eax]
+			push	ecx
 			call	pushRock
+			add		esp, 4
+			pop		ebx
 			jmp		checkDone
 		pLever:
 			cmp		BYTE [board + eax], 'L'
@@ -843,48 +867,72 @@ checkCharGame:
 pushRock:
 	push	ebp
 	mov		ebp, esp
+		sub		esp, 4
+		mov		ecx, DWORD [ebp + 8]
+		mov		DWORD [ebp - 4], ecx
 			;Check which direction the rock is moving
-		cmp		ecx, 'w'
+		cmp		DWORD [ebp - 4], 'w'
 		je		nextDir1
-		cmp		ecx, 'a'
+		cmp		DWORD [ebp - 4], 'a'
 		je		nextDir2
-		cmp		ecx, 's'
+		cmp		DWORD [ebp - 4], 's'
 		je		nextDir3
-		cmp		ecx, 'd'
+		cmp		DWORD [ebp - 4], 'd'
 		je		nextDir4
 		jmp		rockend
 			;Load the address of the next space in the array 
 			;according to the direction the rock is moivng
 		nextDir1:
-			lea		ecx, [board + eax - 24]
-			lea		edx, [floorLayer + eax - 24]
+			lea		ecx, [ebx - 24]
+			lea		edx, [eax - 24]
 			jmp		moveRock
 		nextDir2:
-			lea		ecx, [board + eax - 1]
-			lea		edx, [floorLayer + eax - 1]
+			lea		ecx, [ebx - 1]
+			lea		edx, [eax - 1]
 			jmp		moveRock
 		nextDir3:
-			lea		ecx, [board + eax + 24]
-			lea		edx, [floorLayer + eax + 24]
+			lea		ecx, [ebx + 24]
+			lea		edx, [eax + 24]
 			jmp		moveRock
 		nextDir4:
-			lea		ecx, [board + eax + 1]
-			lea		edx, [floorLayer + eax + 1]
+			lea		ecx, [ebx + 1]
+			lea		edx, [eax + 1]
 		moveRock:
 			;Check if the character the rock was pushed into is a valid move
 			;if not, reset the position of the player
 		cmp		BYTE [ecx], ' '
-		jne		pathBlocked
+		jne		notSpace
 		canMove:
 			cmp		BYTE [edx], 'W'
 			jne		notOnWater
-				mov		BYTE [board + eax], ' '
-				mov		BYTE [edx], 'R'
+				mov		cl, BYTE [ebx]
+				mov		BYTE [ebx], ' '
+				mov		BYTE [edx], cl
 				jmp		rockend
 			notOnWater:
-			mov		BYTE [board + eax], ' '
-			mov		BYTE [ecx], 'R'
+			mov		dl, BYTE [ebx]
+			mov		BYTE [ebx], ' '
+			mov		BYTE [ecx], dl
 			jmp		rockend
+		notSpace:
+		
+		cmp		BYTE [ebx], 'I'
+		jne		pathBlocked
+			cmp		BYTE [ecx], 'I'
+			jne		pathBlocked
+				push	ebx
+				push	ecx
+				mov		ebx, ecx
+				mov		eax, edx
+				push	DWORD [ebp - 4]
+				call	pushRock
+				add		esp, 4
+				pop		ecx
+				pop		ebx
+
+				cmp		BYTE [ecx], 'I'
+				je		pathBlocked
+					jmp		notOnWater
 		pathBlocked:
 		mov		DWORD [xpos], esi
 		mov		DWORD [ypos], edi
@@ -986,6 +1034,10 @@ init_board:
 		je		endObjCheck
 			cmp		BYTE [board + edi], 'g'
 			je		yesGemPlate
+			cmp		BYTE [board + edi], 'h'
+			je		yesGemWater
+			cmp		BYTE [board + edi], 'i'
+			je		yesLightPlate
 			cmp		BYTE [board + edi], 'P'
 			je		yesPlate
 			cmp		BYTE [board + edi], 'W'
@@ -1000,12 +1052,22 @@ init_board:
 			je		yesDoor
 			cmp		BYTe [board + edi], '^'
 			je		yesDoor
+			cmp		BYTE [board + edi], '&'
+			je		yesGPDoor
 			mov		BYTE [doorLayer + edi], 0
 			mov		BYTE [floorLayer + edi], 0
 			jmp		noObj
+			yesGemWater:
+				mov		BYTE [board + edi], 'G'
+				mov		BYTe [floorLayer + edi], 'R'
+				jmp		noObj
 			yesGemPlate:
 				mov		BYTE [board + edi], 'G'
-				mov		BYTe [floorLayer + edi], 'P'
+				mov		BYTE [floorLayer + edi], 'P'
+				jmp		noObj
+			yesLightPlate:
+				mov		BYTE [board + edi], 'I'
+				mov		BYTE [floorLayer + edi], 'P'
 				jmp		noObj
 			yesPlate:
 				mov		BYTE [board + edi], ' '
@@ -1017,7 +1079,11 @@ init_board:
 				jmp		noObj
 			yesDoor:
 				mov		BYTE [doorLayer + edi], ' '
-				mov		BYTe [floorLayer + edi], 0
+				mov		BYTE [floorLayer + edi], 0
+				jmp		noObj
+			yesGPDoor:
+				mov		BYTE [doorLayer + edi], ' '
+				mov		BYTE [floorLayer + edi], 'P'
 			noObj:
 		inc		edi
 		jmp		objLoop
@@ -1053,6 +1119,8 @@ searchObject:
 		cmp		esi, 432
 		je		searchPassed
 			cmp		BYTE [ebx + esi], 'R'
+			je		notCovered
+			cmp		BYTE [ebx + esi], 'I'
 			je		notCovered
 			cmp		BYTE [ebx + esi], 'G'
 			je		notCovered
@@ -1098,7 +1166,12 @@ searchObject:
 				mov		dl, '#'
 				jmp		endSearch
 			notGrey2:	
-				mov		dl, ' '
+				cmp		BYTE [floorLayer + edi], 0
+				je		emptyFloor
+					mov		dl, BYTE [floorLayer + edi]
+					jmp		endSearch
+				emptyFloor:
+					mov		dl, ' '
 		endSearch:
 		pop		ecx
 	mov		esp, ebp
@@ -1221,6 +1294,37 @@ rColor:
 		jmp		resetColorLoop
 		endResetColorLoop:
 		mov		DWORD [resColor], 0
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+colorFill:
+	push	ebp
+	mov		ebp, esp
+		mov		BYTE [colorArray + 'T'], 0
+		mov		BYTE [colorArray + '-'], 4
+		mov		BYTE [colorArray + '|'], 4
+		mov		BYTE [colorArray + 'R'], 2
+		mov		BYTE [colorArray + 'I'], 13
+		mov		BYTE [colorArray + 'i'], 13
+		mov		BYTE [colorArray + 'P'], 3
+		mov		BYTE [colorArray + '^'], 9
+		mov		BYTE [colorArray + '&'], 9
+		mov		BYTE [colorArray + '%'], 7
+		mov		BYTE [colorArray + '#'], 0
+		mov		BYTE [colorArray + '!'], 5
+		mov		BYTE [colorArray + '*'], 8
+		mov		BYTE [colorArray + ')'], 10
+		mov		BYTE [colorArray + 'S'], 6
+		mov		BYTE [colorArray + 'W'], 4
+		mov		BYTE [colorArray + 'O'], 11
+		mov		BYTE [colorArray + 'B'], 7
+		mov		BYTE [colorArray + 'b'], 7
+		mov		BYTE [colorArray + 'G'], 9
+		mov		BYTE [colorArray + 'g'], 9
+		mov		BYTE [colorArray + 'K'], 1
+		mov		BYTE [colorArray + 'L'], 4
+		mov		BYTE [colorArray + 'l'], 4
 	mov		esp, ebp
 	pop		ebp
 	ret
