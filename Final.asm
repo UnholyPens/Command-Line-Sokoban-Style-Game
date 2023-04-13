@@ -5,7 +5,7 @@ segment .data
 	menuBoard			db "menu.txt",0
 	menuBoard2			db "menu2.txt",0
 		;these are the color codes used for various symbols
-	playerColor			db	27,"[38;5;173m",0	
+	playerColor			db	27,"[38;5;173m",0
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
 		;these colors are part of colorCodeArray
@@ -286,34 +286,30 @@ render:
 mcharRender:
 	push	ebp
 	mov		ebp, esp
-			cmp		BYTE [colorArray + edx], 0
-			je		noChange
-				xor		eax, eax
-				mov		al, BYTE [colorArray + edx]
-				mov		DWORD [colorCode], eax
-			noChange:
-			cmp		BYTE [ebx + edi], ' '
-			je		mAddChar
-			cmp		BYTE [ebx + edi], '-'
-			je		foundBorder
-			cmp		BYTE [ebx + edi], '|'
-			je		foundBorder
-			cmp		BYTE [ebx + edi], ')'
-			je		menuOpt
-			cmp		BYTE [ebx + edi], 31
-			jle		mAddChar
-			jmp		notBorder
-			menuOpt:
-				mov		dl, ' '
-				jmp		foundBorder
-			notBorder:
-				mov		DWORD [colorCode], 7
-			foundBorder:
-			call	colorFunc
-			mAddChar:
-						;load the displayed character into the frame buffer
-			mov		BYTE [frameBuffer + ecx], dl
-			inc		ecx
+		call	colorSearch
+		waiting:
+		cmp		BYTE [ebx + edi], ' '
+		je		mAddChar
+		cmp		BYTE [ebx + edi], '-'
+		je		foundBorder
+		cmp		BYTE [ebx + edi], '|'
+		je		foundBorder
+		cmp		BYTE [ebx + edi], ')'
+		je		menuOpt
+		cmp		BYTE [ebx + edi], 31
+		jle		mAddChar
+		jmp		notBorder
+		menuOpt:
+			mov		dl, ' '
+			jmp		foundBorder
+		notBorder:
+			mov		DWORD [colorCode], 7
+		foundBorder:
+		call	colorFunc
+		mAddChar:
+					;load the displayed character into the frame buffer
+		mov		BYTE [frameBuffer + ecx], dl
+		inc		ecx
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -335,19 +331,28 @@ charRender:
 		rFWater:
 			cmp		BYTE [floorLayer + edi], 'W'
 			jne		floorRock
-				mov		DWORD [colorCode], 4
 				mov		dl, 'W'
 				jmp		notFloor
 			floorRock:
-				mov		DWORD [colorCode], 7
-				mov		dl, 'R'
+				mov		dl, BYTE [ebx + edi]
+				cmp		dl, ' '
+				jne		gemWater?
+					mov		DWORD [colorCode], 7
+					mov		dl, 'R'
+					jmp		noSearch
+				gemWater?:
 				jmp		notFloor
 		rFPlate:
 			mov		DWORD [colorCode], 3
 			mov		DWORD [resColor], 1
 			mov		dl, 'P'
 			call	colorFunc
+			cmp		BYTE [ebx + edi], ' '
+			je		notFloor
+				mov		dl, BYTE [ebx + edi]
 		notFloor:
+		call	colorSearch
+		noSearch:
 		cmp		BYTE [ebx + edi], 'T'
 		je		rWall
 		cmp		BYTE [ebx + edi], 'O'
@@ -358,24 +363,12 @@ charRender:
 		je		rSpace
 		cmp		BYTE [ebx + edi], '|'
 		je		rSpace
-		cmp		BYTE [ebx + edi], 'K'
-		je		rKey
 		cmp		BYTE [ebx + edi], 'R'	
 		je		rRock
 		cmp		BYTE [ebx + edi], 'I'
 		je		rRock
-		cmp		BYTE [ebx + edi], 'L'
-		je		rLever
-		cmp		BYTE [ebx + edi], 'l'
-		je		rLever
-		cmp		BYTE [ebx + edi], 'B'
-		je		rButton
-		cmp		BYTE [ebx + edi], 'b'
-		je		rButton
 		cmp		BYTE [ebx + edi], 'G'
 		je		rGem
-		cmp		BYTE [ebx + edi], 'S'
-		je		rStairs
 		cmp		BYTE [ebx + edi], '_'
 		je		rDoor
 		cmp		BYTE [ebx + edi], '!'
@@ -394,13 +387,7 @@ charRender:
 		rWall:
 			mov		DWORD [resColor], 1
 			mov		dl, ' '
-			cmp		BYTE [ebx + edi], 'T'
-			je		wall2
-				mov		DWORD [colorCode], 11
-				jmp		rDefault
-			wall2:
-				mov		DWORD [colorCode], 0
-				jmp		rDefault
+			jmp		rDefault
 		rSpace:
 			cmp		BYTE [doorLayer + edi], 0
 			je		isSpace
@@ -411,44 +398,22 @@ charRender:
 			jne		rDefault
 			mov		dl, ' '
 			jmp		addChar
-		rKey:
-			mov		DWORD [colorCode], 1
-			jmp		rDefault
 		rRock:
 			mov		dl, 'R'
-			cmp		BYTE [ebx + edi], 'I'
-			je		lightRock
-				mov		DWORD [colorCode], 2
-				jmp		rDefault
-			lightRock:
-				mov		DWORD [colorCode], 13
-				jmp		rDefault
-		rLever:
-			mov		DWORD [colorCode], 4
-			jmp		rDefault
-		rButton:
-			mov		DWORD [colorCode], 7
 			jmp		rDefault
 		rGem:
 			mov		DWORD [colorCode], 9
 			mov		dl, 'G'
 			jmp		rDefault
-		rStairs:
-			mov		DWORD [colorCode], 6
-			jmp		rDefault
 		rDoor:
 			push	DWORD [ebx + edi]
 			isDoor:
-			mov		DWORd [colorCode], 5
 			cmp		BYTE [ebp - 4], '!'
 			je		notPDoor
-			mov		DWORD [colorCode], 7
 			cmp		BYTE [ebp - 4], '%'
 			je		notBDoor
-			mov		DWORD [colorCode], 8
 			cmp		BYTE [ebp - 4], '*'
 			je		notGBDoor
-			mov		DWORD [colorCode], 9
 			cmp		BYTE [ebp - 4], '^'
 			je		notGDoor
 			cmp		BYTE [ebp - 4], '&'
@@ -490,6 +455,24 @@ charRender:
 			call	rColor
 			mov		DWORD [lastColor], 50
 		noReset:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+colorSearch:
+	push	ebp
+	mov		ebp, esp
+		cmp		BYTE [colorArray + edx], 0
+		je		noChange
+			xor		eax, eax
+			mov		al, BYTE [colorArray + edx]
+			cmp		eax, 48
+			jne		notInd1
+				mov		DWORD [colorCode], 0
+				jmp		noChange
+			notInd1:
+				mov		DWORD [colorCode], eax
+		noChange:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -915,7 +898,6 @@ pushRock:
 			mov		BYTE [ecx], dl
 			jmp		rockend
 		notSpace:
-		
 		cmp		BYTE [ebx], 'I'
 		jne		pathBlocked
 			cmp		BYTE [ecx], 'I'
@@ -929,7 +911,6 @@ pushRock:
 				add		esp, 4
 				pop		ecx
 				pop		ebx
-
 				cmp		BYTE [ecx], 'I'
 				je		pathBlocked
 					jmp		notOnWater
@@ -1111,8 +1092,9 @@ searchObject:
 	push	ebp
 	mov		ebp, esp
 		push	ecx
-		mov		edx, DWORD [ebp + 8]
-		mov		al, BYTE [ebp + 12]
+		mov		dl, BYTE [ebp + 12]
+		call	colorSearch
+		mov		eax, DWORD [ebp + 8]
 		mov		esi, 0
 			;check the board layer for the repsective object
 		searchLoop:
@@ -1124,23 +1106,23 @@ searchObject:
 			je		notCovered
 			cmp		BYTE [ebx + esi], 'G'
 			je		notCovered
-				cmp		BYTE [floorLayer + esi], dl
+				cmp		BYTE [floorLayer + esi], al
 				jne		notCovered
 					jmp		plateCovered
 			notCovered:
-			cmp		BYTE [ebx + esi], dl
+			cmp		BYTE [ebx + esi], al
 			jne		checkActive
 				plateCovered:
 				cmp		BYTE [ebx + edi], '*'
 				je		gDoor
-				cmp		BYTE [ebx + edi], al
+				cmp		BYTE [ebx + edi], dl
 				je		noSwap
-				cmp		al, '*'
+				cmp		dl, '*'
 				je		noSwap
 				gDoor:
 					call	layerSwap
 				noSwap:
-				cmp		al, '*'
+				cmp		dl, '*'
 				jne		notGrey1
 					mov		dl, ' '
 					jmp		endSearch
@@ -1154,14 +1136,14 @@ searchObject:
 		searchPassed:
 			cmp		BYTE [doorLayer + edi], '*'
 			je		gDoor2
-			cmp		BYTE [ebx + edi], al
+			cmp		BYTE [ebx + edi], dl
 			jne		doorLayer1
-			cmp		al, '*'
+			cmp		dl, '*'
 			je		doorLayer1
 				gDoor2:
 				call	layerSwap
 			doorLayer1:
-			cmp		al, '*'
+			cmp		dl, '*'
 			jne		notGrey2
 				mov		dl, '#'
 				jmp		endSearch
@@ -1301,7 +1283,7 @@ rColor:
 colorFill:
 	push	ebp
 	mov		ebp, esp
-		mov		BYTE [colorArray + 'T'], 0
+		mov		BYTE [colorArray + 'T'], '0'
 		mov		BYTE [colorArray + '-'], 4
 		mov		BYTE [colorArray + '|'], 4
 		mov		BYTE [colorArray + 'R'], 2
@@ -1311,7 +1293,6 @@ colorFill:
 		mov		BYTE [colorArray + '^'], 9
 		mov		BYTE [colorArray + '&'], 9
 		mov		BYTE [colorArray + '%'], 7
-		mov		BYTE [colorArray + '#'], 0
 		mov		BYTE [colorArray + '!'], 5
 		mov		BYTE [colorArray + '*'], 8
 		mov		BYTE [colorArray + ')'], 10
@@ -1325,6 +1306,7 @@ colorFill:
 		mov		BYTE [colorArray + 'K'], 1
 		mov		BYTE [colorArray + 'L'], 4
 		mov		BYTE [colorArray + 'l'], 4
+		mov		BYTE [colorArray + 'h'], 9
 	mov		esp, ebp
 	pop		ebp
 	ret

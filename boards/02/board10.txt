@@ -1,20 +1,20 @@
 [48;5;22m
 [48;5;52m
 5 4
-The red door will open if all gems are collected.
+
 
 
 ----------------------
 |TTTT       WWWW   T |
 |T  R   R  WWWOOOOO  |
-|T         WWWO   O  |
+|T P       WWWO   O  |
 |T     I R WOOO S O  |
-|  R     G  & !   O  |
+|  R       W& !   O  |
 | T   R  I WOOOOOOO  |
-|  TT   TT WWWT      |
-|  T   TTT WWW TTTTT |
-| TT TTTT WWW TT  TT |
-|TTTTTTTT WWWTTTT TTT|
+|  TT G TT WWWT      |
+| GT   TTT WWW TTTTT |
+| TT TTTTGWWW TT  TT |
+|TTTTTTTT WWhTTTT TTT|
 |TTTTT T TWWW TTTTTTT|
 |TT TT TTTWWW TTT TTT|
 |T  T TT  WWWTT TT TT|
