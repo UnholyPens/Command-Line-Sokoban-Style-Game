@@ -660,7 +660,11 @@ walkFunc:
 gameloop:
 	push	ebp
 	mov		ebp, esp
+		sub		esp, 4
 		resetGame:
+		push	DWORD [ebp + 12]
+		pop		DWORD [ebp - 4]
+
 		mov		eax, 220
 		mul		DWORD [ebp + 8]
 		mov		ebx, eax
@@ -717,6 +721,10 @@ gameloop:
 			je		showHint
 			cmp		eax, 127
 			je		resetBoard
+			cmp		eax, '-'
+			je		changeLevel
+			cmp		eax, '='
+			je		changeLevel
 			jmp		inputFound
 			resetBoard:
 				jmp		resetGame
@@ -734,6 +742,23 @@ gameloop:
 				jmp		inputFound
 			showHint:
 				mov		DWORD [displayHint], 1
+				jmp		inputFound
+			changeLevel:
+				cmp		eax, '-'
+				jne		notSub
+					dec		DWORD [ebp + 12]
+					cmp		DWORD [ebp + 12], 0
+					jge		resetGame
+						dec		DWORD [ebp + 8]
+						mov		DWORD [ebp + 12], 9
+						jmp		resetGame
+				notSub:
+					inc		DWORD [ebp + 12]
+					cmp		DWORD [ebp + 12], 9
+					jle		resetGame
+						inc		DWORD [ebp + 8]
+						mov		DWORD [ebp + 12], 0
+						jmp		resetGame
 			inputFound:
 			mov		ecx, eax
 				; take the potential new pos for the player, and see if it's valid
@@ -742,18 +767,15 @@ gameloop:
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
 				;call checkCharGame, passing it the current board index
-			push	DWORD [ebp + 12]
+			
+			push	DWORD [ebp + 12] ;current level
 			call	checkCharGame
-			pop		DWORD [ebp + 12]
+			pop		ebx ;current level
 				;If the level was completed, proceed to the next one
-			cmp		ebx, DWORD [ebp + 12]
+			
+			cmp		ebx, DWORD [ebp - 4]
 			je		notComplete
-				cmp		DWORD [ebp + 12], 10
-				jne		newLevel
-					inc		DWORD [ebp + 8]
-					mov		DWORD [ebp + 12], 0
-				newLevel:
-					jmp		resetGame
+				jmp		notSub
 			notComplete:
 		jmp		game_loop
 		game_loop_end:
@@ -764,7 +786,6 @@ gameloop:
 checkCharGame:
 	push	ebp
 	mov		ebp, esp
-		mov		ebx, DWORD [ebp + 8]
 		cmp		BYTE [floorLayer + eax], 'W'
 		je		pDefault
 		cmp		BYTE [board + eax], ' '
@@ -789,13 +810,11 @@ checkCharGame:
 		je		pGem
 		jmp		pDefault
 		pRock:
-			push	ebx
 			lea		ebx, [board + eax]
 			lea		eax, [floorLayer + eax]
 			push	ecx
 			call	pushRock
 			add		esp, 4
-			pop		ebx
 			jmp		checkDone
 		pLever:
 			cmp		BYTE [board + eax], 'L'
@@ -1096,16 +1115,11 @@ searchObject:
 		call	colorSearch
 		mov		eax, DWORD [ebp + 8]
 		mov		esi, 0
-			;check the board layer for the repsective object
 		searchLoop:
 		cmp		esi, 432
 		je		searchPassed
-			cmp		BYTE [ebx + esi], 'R'
-			je		notCovered
-			cmp		BYTE [ebx + esi], 'I'
-			je		notCovered
-			cmp		BYTE [ebx + esi], 'G'
-			je		notCovered
+			cmp		BYTE [ebx + esi], ' '
+			jne		notCovered
 				cmp		BYTE [floorLayer + esi], al
 				jne		notCovered
 					jmp		plateCovered
@@ -1113,47 +1127,32 @@ searchObject:
 			cmp		BYTE [ebx + esi], al
 			jne		checkActive
 				plateCovered:
-				cmp		BYTE [ebx + edi], '*'
-				je		gDoor
+				cmp		dl, '*'
+				je		greyPassed
+				greyFailed:
 				cmp		BYTE [ebx + edi], dl
 				je		noSwap
-				cmp		dl, '*'
-				je		noSwap
-				gDoor:
 					call	layerSwap
 				noSwap:
-				cmp		dl, '*'
-				jne		notGrey1
-					mov		dl, ' '
-					jmp		endSearch
-				notGrey1:	
-					mov		dl, '#'
-					jmp		endSearch
+				mov		dl, '#'
+				jmp		endSearch
 			checkActive:
 		inc		esi
 		jmp		searchLoop
-			;if a button is not found, open the button doors
 		searchPassed:
-			cmp		BYTE [doorLayer + edi], '*'
-			je		gDoor2
+			cmp		dl, '*'
+			je		greyFailed
+			greyPassed:
 			cmp		BYTE [ebx + edi], dl
 			jne		doorLayer1
-			cmp		dl, '*'
-			je		doorLayer1
-				gDoor2:
 				call	layerSwap
 			doorLayer1:
-			cmp		dl, '*'
-			jne		notGrey2
-				mov		dl, '#'
+			cmp		BYTE [floorLayer + edi], 0
+			je		emptyFloor
+				mov		dl, BYTE [floorLayer + edi]
 				jmp		endSearch
-			notGrey2:	
-				cmp		BYTE [floorLayer + edi], 0
-				je		emptyFloor
-					mov		dl, BYTE [floorLayer + edi]
-					jmp		endSearch
-				emptyFloor:
-					mov		dl, ' '
+			emptyFloor:
+				mov		dl, ' '
 		endSearch:
 		pop		ecx
 	mov		esp, ebp
