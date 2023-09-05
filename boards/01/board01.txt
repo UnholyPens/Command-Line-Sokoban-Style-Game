@@ -12,7 +12,7 @@ If you make a mistake, press backspace to reset the board.
 |TTTTTTTTTTTTTTTTTTTT|
 |TT       TTTT     TT|
 |TT       R R      TT|
-|TT    R RR R   S  TT|
+|TT       R R   S  TT|
 |TT       R R      TT|
 |TT       TTTT     TT|
 |TTTTTTTTTTTTTTTTTTTT|
