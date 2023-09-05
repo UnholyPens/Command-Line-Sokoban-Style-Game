@@ -4,7 +4,7 @@
 Pink doors will open only when the teal doors are shut. That is to say, 
 the pink doors will open when at least one of the buttons is turned off.
 
-----------------------
+%*--------------------
 |TTTTTTTTTTTTTTTTTTTT|
 |TTTTTTTTTTTTTTTTTTTT|
 |TTTTTTTTTTTTTTTTTTTT|
@@ -12,7 +12,7 @@ the pink doors will open when at least one of the buttons is turned off.
 |TTTTTTTTTTTTTTTTTTTT|
 |TT     T    T     TT|
 |TT     T    T     TT|
-|TT b   *  B %  S  TT|
+|TT b      B    S  TT|
 |TT     T    T     TT|
 |TT     T    T     TT|
 |TTTTTTTTTTTTTTTTTTTT|
