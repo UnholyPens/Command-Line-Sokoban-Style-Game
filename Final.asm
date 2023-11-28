@@ -2,13 +2,14 @@ segment .data
 		;this file contains a list of all the game boards,
 		;and is used to dynamically fill boardArray
 	gameBoards			db "boards/boards.txt",0
+		;these two files make up the two menu screens
 	menuBoard			db "menu.txt",0
 	menuBoard2			db "menu2.txt",0
 		;these are the color codes used for various symbols
+		;these colors are also part of colorCodeArray
 	playerColor			db	27,"[38;5;173m",0
 	helpStrColor		db	27,"[38;5;247m",0
 	resetColor			db	27,"[0m",0
-		;these colors are part of colorCodeArray
 	keyColor			db	27,"[38;5;220m",0
 	rockColor			db	27,"[38;5;94m",0
 	rock2Color			db	27,"[38;5;7m",0
@@ -26,44 +27,51 @@ segment .data
 							playerColor,  rock2Color
 		;used for the board render
 	boardFormat			db "%s",0
-		; used to change the terminal mode
+		;used as the format string for reading from files
 	mode_r				db "r",0
-		; ANSI escape sequence to clear/refresh the screen
+		;ANSI escape sequence to clear/refresh the screen
 	clear_screen_code	db	27,"[2J",27,"[H",27,"[0m",0
-		; the blank space that gets pinted when the hint is not displayed
+		;the blank space that gets pinted when the hint is not displayed
 	hintBlank			db 10,10,10,10,10,0
-		;displays num keys
+		;displayed when a level is completed
 	win_str				db	27,"[2J",27,"[H", "Level complete!",13,10,0
 	waitStr				db	"Press Enter to continue.",13,10,0
-		;all the possible characters that can be displayed on the game board
-		;used to determine interactions between the rock and player chars
+		;this is where the coordinates loaded from a board file are stored
 	coordString			db	"%d %d",0
 
 segment .bss
 		; this array stores the current rendered gameboard (HxW)
 	board		resb	432
-		;this array is used to store door characters when they are opened
+		;this array is used for changing states of doors
 	doorLayer	resb	432
 		;same as the door layer, but for floor objects, like water and plates
 	floorLayer	resb	432
-		; these variables store the current player position
+		;these variables store the current player position
 	xpos		resd	1
 	ypos		resd	1
-		;These variables store various data for rendering
+		;used for navigating the menu screens
 	foundOpt	resd	1
+		;used for looking into colorCodeArray
 	colorCode	resd	1
+		;used for reseting color codes
 	resColor	resd	1
+		;used for displaying the hint text
 	displayHint	resd	1
+		;used for exiting to menu
 	gameEnd		resd	1
+		;used for exiting the game
 	menuEnd		resd	1
+		;used for printing the final string to the screen
 	frameBuffer	resb	2000
+		;used for various color interactions
 	lastColor	resd	1
+		;used for the undo function
 	inputCount	resd	1
 	inputArray	resb	500
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is
-		;filled in loadBoards
+		;filled in the loadBoards function
 	boardArray	resb	2201
 		;stores the main menu(s)
 	mainMenu	resb	1041
@@ -71,6 +79,7 @@ segment .bss
 		;stores the color codes for the wall colors
 	wallColor	resb	16
 	wallColor2	resb	16
+		;used for determining the color of the various game characters
 	colorArray	resb	128
 
 segment .text
@@ -82,7 +91,6 @@ segment .text
 	extern	getchar
 	extern	printf
 	extern	fopen
-	extern	fread
 	extern	fgetc
 	extern	fgets
 	extern	fscanf
@@ -97,16 +105,18 @@ main:
 			; put the terminal in raw mode so the game works nicely
 		call	raw_mode_on
 			;populate boardArray with all the game boards
-			;serves the same purpose as the boards array did
 		call	loadBoards
+			;
 		push	mainMenu
 		push	menuBoard
 		call	init_menuBoard
-		add		esp, 4
+		add		esp, 8
+			;
 		push	mainMenu2
 		push	menuBoard2
 		call	init_menuBoard
-		add		esp, 4
+		add		esp, 8
+			;
 		push	11
 		push	14
 		push	mainMenu
@@ -118,17 +128,19 @@ main:
 	mov		esp, ebp
 	pop		ebp
 	ret
-
+;takes the game board file locations stored in gameBoards, 
+;and stores them indiviudually into boardArray
 loadBoards:
 	push	ebp
 	mov		ebp, esp
+			;create 1 local variable
 		sub		esp, 4
 			;open the file
 		push	mode_r
 		push	gameBoards
 		call	fopen
 		add		esp, 8
-			;free up eax
+			;store file pointer in local variable
 		mov		DWORD[ebp - 4], eax
 			;initialize the indexer
 		mov		esi, 0
@@ -136,10 +148,10 @@ loadBoards:
 		lea		edx, [boardArray + esi]
 		cmp		eax, 0
 		je		endReadLoop
-				;read the line into boardArray
-			push	DWORD [ebp - 4]
-			push	23
-			push	edx
+				;read the line from file gameBoards into boardArray
+			push	DWORD [ebp - 4] ;gameBoards
+			push	23 				;size
+			push	edx 			;boardArray
 			call	fgets
 			add		esp, 12
 				;replace the new line with a null byte
@@ -164,19 +176,45 @@ init_menuBoard:
 		push	DWORD [ebp + 8]
 		call	fopen
 		add		esp, 8
-			;free up eax
+			;store file pointer in local variable
 		mov		DWORD[ebp - 4], eax
-			;initialize the indexer
-		push	51
-		push	52
-		push	DWORD [ebp + 12]
-		push	DWORD [ebp - 4]
+			;call readDisplay to populate mainMenu/mainMenu2
+		push	51 				 ;inc value
+		push	52 				 ;fgets buffer
+		push	DWORD [ebp + 12] ;array
+		push	DWORD [ebp - 4]  ;file handle
 		call	readDisplay
 		add		esp, 16
 			;close the file
 		push	DWORD [ebp - 4]
 		call	fclose
 		add		esp, 4
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+;has four arguments, file handle, array, fgets buffer, increment value
+;reads in the game board
+readDisplay:
+	push	ebp
+	mov		ebp, esp
+		mov		ebx, DWORD [ebp + 12]
+		mov		esi, 0
+		topDisplayLoop:
+			lea		edx, [ebx + esi] ;load the address of the respective array into edx
+			push	DWORD [ebp + 8]  ;file handle
+			push	DWORD [ebp + 16] ;fgets buffer
+			push	edx 			 ;array
+			call	fgets
+			add		esp, 12
+			cmp		eax, 0
+			je		bottomDisplay
+				add		esi, DWORD [ebp + 20] ;inc value
+				mov		BYTE [ebx + esi], 13 ;replace null with carriage return
+		inc		esi
+		jmp		topDisplayLoop
+		bottomDisplay:
+		mov		BYTE [ebx + esi - 2], 10
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -243,6 +281,134 @@ menuLoop:
 		push	clear_screen_code
 		call	printf
 		add		esp, 4
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+;has two arguments, saved user input, and the cursor location in the board
+;determines what to do based on what the user inputed
+checkCharMenu:
+	push	ebp
+	mov		ebp, esp	
+		mov		ebx, DWORD [ebp + 8]
+		cmp		DWORD [ebp + 12], ' '
+		jne		checkMove
+				;store xpos and ypos for menu1
+			push	DWORD [xpos] 
+			push	DWORD [ypos]
+			cmp		ebx, mainMenu
+			jne		notMain1
+				cmp		DWORD [xpos], 14
+				jne		notGame
+						;enter the level select screen
+					push	8         ;starting y value
+					push	5         ;starting x value
+					push	mainMenu2
+					call 	menuLoop
+					add		esp, 12
+					jmp		checkComplete
+				notGame:
+						;if close selected, exit screen
+					inc		DWORD [menuEnd]
+					jmp		checkComplete
+			notMain1:
+				cmp		DWORD [ypos], 18
+				je		notGame
+						;using the cursor location, determine both the level offset 
+						;and the world offset within boardArray					
+					sub		DWORD [ypos], 8   ;subtract from ypos the height offset of menu2,
+					                          ;effectively obtaining the level id
+					mov		eax, DWORD [xpos]
+					sub		eax, 5            ;subtract from xpos the width offset of menu2
+					mov		ecx, 4
+					div		ecx               ;divide xpos by the offset between worlds,
+					                          ;effectively obtaining the world id
+						;call gameloop
+					push	DWORD [ypos] ;level id
+					push	eax          ;world id
+					call	gameloop
+					add		esp, 8
+						;reset game state
+					mov		DWORD [gameEnd], 0
+			checkComplete:
+				;retrieve xpos and ypos for menu1
+ 			pop		DWORD [ypos]
+			pop		DWORD [xpos]
+			jmp		moveCursor
+		checkMove:
+			;get cursor offset
+		add		ebx, eax
+			;If moving up or down, seek through the arry appropriately to find 
+			;an acceptable cursor location
+		cmp		DWORD [ebp + 12], 'w'
+		je		walkBackTop
+		cmp		DWORD [ebp + 12], 's'
+		jne		notUpDown
+		walkBackTop:
+				;seek eiither left or right edge, depending on whether up or down was inputed.
+			push	DWORD [ebp + 12]
+			push	'|'
+			push	'w'
+			call	walkFunc
+			add		esp, 12
+			
+			cmp		DWORD [foundOpt], 1
+			je		moveCursor
+					;if option not found, seek null at beginning or end of array,
+					;dedpending on whether up or down was inputed.
+				push	DWORD [ebp + 12]
+				push	0
+				push	's'
+				call	walkFunc
+				add		esp, 12
+				
+				cmp		DWORD [foundOpt], 1
+				je		moveCursor
+					jmp		noMove
+		notUpDown:
+				;if a or d is pressed, scan in the appropriate direction
+			push	DWORD [ebp + 12]
+			push	'|'
+			push	'd'
+			call	walkFunc
+			add		esp, 12
+
+			cmp		DWORD [foundOpt], 1
+			je		moveCursor
+		noMove:
+			mov		DWORD [xpos], esi
+			mov		DWORD [ypos], edi
+		moveCursor:
+	mov		esp, ebp
+	pop		ebp
+	ret
+
+;three arguments, character to compare to, character to look for, and user input
+;walks through the menu board, until it either finds a stop or a viable option to move to
+walkFunc:
+	push	ebp
+	mov		ebp, esp
+		mov		edx, 0
+		mov		DWORD [foundOpt], 0
+		mov		eax, DWORD [ebp + 12]
+		mov		ecx, DWORD [ebp + 8]
+		topWalk:
+		cmp		BYTE [ebx + edx], al
+		je		seekComplete
+			cmp		BYTE [ebx + edx], ')'
+			jne		notOption
+				add		DWORD [xpos], edx
+				inc		DWORD [foundOpt]
+				jmp		seekComplete
+			notOption:
+		cmp		DWORD [ebp + 16], ecx
+		jne		mvLeft
+			inc		edx
+			jmp		topWalk
+		mvLeft:
+			dec		edx
+			jmp		topWalk
+		seekComplete:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -318,34 +484,32 @@ gameloop:
 			undo:
 				cmp		DWORD [inputCount], 0
 				je		game_loop
+					mov		DWORD [ebp - 8], 0
+					dec		DWORD [inputCount]
+					push	DWORD [ebp + 12]
+					push	DWORD [ebp + 8]
+					call	initGame
+					add		esp, 8
 				
-				mov		DWORD [ebp - 8], 0
-				dec		DWORD [inputCount]
-				push	DWORD [ebp + 12]
-				push	DWORD [ebp + 8]
-				call	initGame
-				add		esp, 8
-			
-				undoLoop:
-				xor		edx, edx
-				mov		edx, DWORD [ebp - 8]
-				cmp		edx, DWORD [inputCount]
-				je		endUndoLoop
-					xor		eax, eax
-					mov		al, BYTE [inputArray + edx]
-					call	checkInput
-					mov		ecx, eax
+					undoLoop:
+					xor		edx, edx
+					mov		edx, DWORD [ebp - 8]
+					cmp		edx, DWORD [inputCount]
+					je		endUndoLoop
+						xor		eax, eax
+						mov		al, BYTE [inputArray + edx]
+						call	checkInput
+						mov		ecx, eax
 
-					mov		eax, 24
-					mul		DWORD [ypos]
-					add		eax, DWORD [xpos]
+						mov		eax, 24
+						mul		DWORD [ypos]
+						add		eax, DWORD [xpos]
 
-					call	checkCharGame
-
-				inc		DWORD [ebp - 8]
-				jmp		undoLoop
-				endUndoLoop:
-				jmp		game_loop
+						call	checkCharGame
+					inc		DWORD [ebp - 8]
+					jmp		undoLoop
+					endUndoLoop:
+					jmp		game_loop
 			inputMade:
 			mov		ecx, DWORD [inputCount]
 			mov		BYTE [inputArray + ecx], al
@@ -356,13 +520,11 @@ gameloop:
 			mov		eax, 24
 			mul		DWORD [ypos]
 			add		eax, DWORD [xpos]
-				;call checkCharGame, passing it the current board index
-			
+				;call checkCharGame, passing it the current board index	
 			push	DWORD [ebp + 12] ;current level
 			call	checkCharGame
 			pop		ebx ;current level
 				;If the level was completed, proceed to the next one
-			
 			cmp		ebx, DWORD [ebp - 4]
 			je		notComplete
 				jmp		notSub
@@ -410,122 +572,6 @@ checkInput:
 		showHint:
 			mov		DWORD [displayHint], 1	
 		inputFound:
-	mov		esp, ebp
-	pop		ebp
-	ret
-
-;has two arguments, saved user input, and the cursor location in the board
-;determines what to do based on what the user inputed
-checkCharMenu:
-	push	ebp
-	mov		ebp, esp	
-		mov		ebx, DWORD [ebp + 8]
-		cmp		DWORD [ebp + 12], ' '
-		jne		checkMove
-			push	DWORD [xpos]
-			push	DWORD [ypos]
-			cmp		ebx, mainMenu
-			jne		notMain1
-				cmp		DWORD [xpos], 14
-				jne		notGame
-						;enter the level select screen
-					push	8
-					push	5
-					push	mainMenu2
-					call 	menuLoop
-					add		esp, 12
-					jmp		checkComplete
-				notGame:
-						;if close selected, exit screen
-					inc		DWORD [menuEnd]
-					jmp		checkComplete
-			notMain1:
-				cmp		DWORD [ypos], 18
-				je		notGame
-						;using the cursor location, determine both the level offset 
-						;and the world offset within boardArray					
-					sub		DWORD [ypos], 8
-					mov		eax, DWORD [xpos]
-					sub		eax, 5
-					mov		ecx, 4
-					div		ecx
-						;call gameloop
-					push	DWORD [ypos]
-					push	eax
-					call	gameloop
-					add		esp, 8
-						;reset game state
-					mov		DWORD [gameEnd], 0
-			checkComplete:
- 			pop		DWORD [ypos]
-			pop		DWORD [xpos]
-			jmp		moveCursor
-		checkMove:
-			;get cursor offset
-		add		ebx, eax
-			;If moving up or down, seek through the arry appropriately to find 
-			;an acceptable cursor location
-		push	DWORD [ebp + 12]
-		push	'|'
-		cmp		DWORD [ebp + 12], 'w'
-		je		walkBackTop
-		cmp		DWORD [ebp + 12], 's'
-		jne		notUpDown
-		walkBackTop:
-				;seek eiither left or right edge, depending on whether up or down was inputed.
-			push	'w'
-			call	walkFunc
-				;seek null at beginning or end of array, edpending on whether up or down was inputed.
-			cmp		DWORD [foundOpt], 1
-			je		validMove
-				mov		DWORD [ebp - 8], 0
-				mov		DWORD [ebp - 12], 's'
-				call	walkFunc
-				cmp		DWORD [foundOpt], 1
-				je		validMove
-					jmp		noMove
-		notUpDown:
-				;if a or d is pressed, scan in the appropriate direction
-			push	'd'
-			call	walkFunc
-			cmp		DWORD [foundOpt], 1
-			je		validMove
-		noMove:
-			mov		DWORD [xpos], esi
-			mov		DWORD [ypos], edi
-		validMove:
-			add		esp, 12
-		moveCursor:
-	mov		esp, ebp
-	pop		ebp
-	ret
-
-;three arguments, character to compare to, character to look for, and user input
-;walks through the menu board, until it either finds a stop or a viable option to move to
-walkFunc:
-	push	ebp
-	mov		ebp, esp
-		mov		edx, 0
-		mov		DWORD [foundOpt], 0
-		mov		eax, DWORD [ebp + 12]
-		mov		ecx, DWORD [ebp + 8]
-		topWalk:
-		cmp		BYTE [ebx + edx], al
-		je		seekComplete
-			cmp		BYTE [ebx + edx], ')'
-			jne		notOption
-				add		DWORD [xpos], edx
-				inc		DWORD [foundOpt]
-				jmp		seekComplete
-			notOption:
-		cmp		DWORD [ebp + 16], ecx
-		jne		mvLeft
-			inc		edx
-			jmp		topWalk
-		mvLeft:
-			dec		edx
-			jmp		topWalk
-		seekComplete:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -597,11 +643,11 @@ checkCharGame:
 			jmp		pDefault
 		pButton:
 			cmp		BYTE [board + eax], 'B'
-			jne		notButt
+			jne		bNotActive
 				mov		BYTE [board + eax], 'b'
 				jmp		bActive
-			notButt:
-			mov		BYTE [board + eax], 'B'
+			bNotActive:
+				mov		BYTE [board + eax], 'B'
 			bActive:
 
 			push	'b'
@@ -732,7 +778,7 @@ initGame:
 		cmp		BYTE [boardArray + eax], 0
 		jne		validBoard
 			inc		DWORD[gameEnd]
-			jmp		game_loop
+			jmp		endInit
 		validBoard:
 			;display the initial board, or update it to the next one
 		lea		ecx, [boardArray + eax]
@@ -749,7 +795,6 @@ initGame:
 		push	board
 		call	searchObject
 
-
 		mov		DWORD [ebp - 8], '*'
 		mov		DWORD [ebp - 12], ' '
 		call	searchObject
@@ -760,6 +805,8 @@ initGame:
 		mov		DWORD [ebp - 16], floorLayer
 		call	searchObject
 		add		esp, 16
+
+		endInit:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -1335,31 +1382,6 @@ readWallCol:
 	pop		ebp
 	ret
 
-;has four arguments, file handle, array, fgets buffer, increment value
-;reads in the game board
-readDisplay:
-	push	ebp
-	mov		ebp, esp
-		mov		ebx, DWORD [ebp + 12]
-		mov		esi, 0
-		topDisplayLoop:
-			lea		edx, [ebx + esi]
-			push	DWORD [ebp + 8]
-			push	DWORD [ebp + 16]
-			push	edx
-			call	fgets
-			add		esp, 12
-			cmp		eax, 0
-			je		bottomDisplay
-				add		esi, DWORD [ebp + 20]
-				mov		BYTE [ebx + esi], 13
-				inc		esi
-				jmp		topDisplayLoop
-		bottomDisplay:
-		mov		BYTE [ebx + esi - 2], 10
-	mov		esp, ebp
-	pop		ebp
-	ret
 ;prints a reset code
 rColor:
 	push	ebp
@@ -1378,34 +1400,35 @@ rColor:
 	mov		esp, ebp
 	pop		ebp
 	ret
-;populates the color array as per the various possible board elements
+	
+;associates a color code with each of the possible game board elements
 colorFill:
 	push	ebp
 	mov		ebp, esp
-		mov		BYTE [colorArray + 'T'], '0'
-		mov		BYTE [colorArray + '-'], 4
-		mov		BYTE [colorArray + '|'], 4
-		mov		BYTE [colorArray + 'R'], 2
-		mov		BYTE [colorArray + 'I'], 13
-		mov		BYTE [colorArray + 'i'], 13
-		mov		BYTE [colorArray + 'P'], 3
-		mov		BYTE [colorArray + '^'], 9
-		mov		BYTE [colorArray + '&'], 9
-		mov		BYTE [colorArray + '%'], 7
-		mov		BYTE [colorArray + '!'], 5
-		mov		BYTE [colorArray + '*'], 8
-		mov		BYTE [colorArray + ')'], 10
-		mov		BYTE [colorArray + 'S'], 6
-		mov		BYTE [colorArray + 'W'], 4
-		mov		BYTE [colorArray + 'O'], 11
-		mov		BYTE [colorArray + 'B'], 7
-		mov		BYTE [colorArray + 'b'], 7
-		mov		BYTE [colorArray + 'G'], 9
-		mov		BYTE [colorArray + 'g'], 9
-		mov		BYTE [colorArray + 'K'], 1
-		mov		BYTE [colorArray + 'L'], 4
-		mov		BYTE [colorArray + 'l'], 4
-		mov		BYTE [colorArray + 'h'], 9
+		mov		BYTE [colorArray + 'T'], '0' ;wall character
+		mov		BYTE [colorArray + '-'], 4   ;horizonatl line in menu
+		mov		BYTE [colorArray + '|'], 4   ;vertical line in menu
+		mov		BYTE [colorArray + 'R'], 2   ;normal rocks
+		mov		BYTE [colorArray + 'I'], 13  ;light rocks
+		mov		BYTE [colorArray + 'i'], 13  ;light rock on plate
+		mov		BYTE [colorArray + 'P'], 3   ;plate
+		mov		BYTE [colorArray + '^'], 9   ;gem door
+		mov		BYTE [colorArray + '&'], 9   ;plate door with gem
+		mov		BYTE [colorArray + '%'], 7   ;button door
+		mov		BYTE [colorArray + '!'], 5   ;plate door
+		mov		BYTE [colorArray + '*'], 8   ;grey button door
+		mov		BYTE [colorArray + ')'], 10  ;menu option character
+		mov		BYTE [colorArray + 'S'], 6   ;stairs
+		mov		BYTE [colorArray + 'W'], 4   ;water
+		mov		BYTE [colorArray + 'O'], 11  ;player character
+		mov		BYTE [colorArray + 'B'], 7   ;active button
+		mov		BYTE [colorArray + 'b'], 7   ;inactive button
+		mov		BYTE [colorArray + 'G'], 9   ;gem
+		mov		BYTE [colorArray + 'g'], 9   ;gem on plate
+		mov		BYTE [colorArray + 'K'], 1   ;key
+		mov		BYTE [colorArray + 'L'], 4   ;active lever
+		mov		BYTE [colorArray + 'l'], 4   ;inactive lever
+		mov		BYTE [colorArray + 'h'], 9   ;gem on water
 	mov		esp, ebp
 	pop		ebp
 	ret
