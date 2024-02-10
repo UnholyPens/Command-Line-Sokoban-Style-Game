@@ -338,6 +338,8 @@ checkCharMenu:
 		checkMove:
 			;get cursor offset
 		add		ebx, eax
+			
+		push	DWORD [ebp + 12] ; saved user input
 			;If moving up or down, seek through the arry appropriately to find 
 			;an acceptable cursor location
 		cmp		DWORD [ebp + 12], 'w'
@@ -346,36 +348,18 @@ checkCharMenu:
 		jne		notUpDown
 		walkBackTop:
 				;seek eiither left or right edge, depending on whether up or down was inputed.
-			push	DWORD [ebp + 12]
-			push	'|'
-			push	'w'
-			call	walkFunc
-			add		esp, 12
-			
-			cmp		DWORD [foundOpt], 1
-			je		moveCursor
-					;if option not found, seek null at beginning or end of array,
-					;dedpending on whether up or down was inputed.
-				push	DWORD [ebp + 12]
-				push	0
-				push	's'
-				call	walkFunc
-				add		esp, 12
-				
-				cmp		DWORD [foundOpt], 1
-				je		moveCursor
-					jmp		noMove
+			push	'-'
+			push	's'
+			jmp		checkCursor
 		notUpDown:
 				;if a or d is pressed, scan in the appropriate direction
-			push	DWORD [ebp + 12]
 			push	'|'
 			push	'd'
-			call	walkFunc
-			add		esp, 12
-
-			cmp		DWORD [foundOpt], 1
-			je		moveCursor
-		noMove:
+		checkCursor:
+		call	walkFunc
+		add		esp, 12
+		cmp		DWORD [foundOpt], 1
+		je		moveCursor
 			mov		DWORD [xpos], esi
 			mov		DWORD [ypos], edi
 		moveCursor:
@@ -388,27 +372,44 @@ checkCharMenu:
 walkFunc:
 	push	ebp
 	mov		ebp, esp
-		mov		edx, 0
-		mov		DWORD [foundOpt], 0
-		mov		eax, DWORD [ebp + 12]
-		mov		ecx, DWORD [ebp + 8]
-		topWalk:
-		cmp		BYTE [ebx + edx], al
-		je		seekComplete
-			cmp		BYTE [ebx + edx], ')'
+		sub     esp, 4
+        mov     DWORD [ebp - 4], eax
+        mov     eax, DWORD [ebp + 12]
+        mov     ecx, DWORD [ebp + 8]
+        mov     DWORD [foundOpt], 0
+		seekOpposite:
+        mov     edx, 0
+        topWalk:
+        cmp     DWORD [foundOpt], 1
+        je      secondComplete
+        cmp		BYTE [ebx + edx], al
+		je		firstComplete
+            cmp		BYTE [ebx + edx], ')'
 			jne		notOption
-				add		DWORD [xpos], edx
-				inc		DWORD [foundOpt]
-				jmp		seekComplete
-			notOption:
-		cmp		DWORD [ebp + 16], ecx
-		jne		mvLeft
-			inc		edx
-			jmp		topWalk
-		mvLeft:
-			dec		edx
-			jmp		topWalk
-		seekComplete:
+				testing:
+				mov     eax, DWORD [ebp - 4]
+                add     eax, edx
+                mov		ecx, 52
+				xor		edx, edx
+				div     ecx
+                mov     DWORD [ypos], eax
+                mov     DWORD [xpos], edx
+                inc     DWORD [foundOpt]
+                jmp     topWalk
+            notOption:
+            cmp		ecx, DWORD [ebp + 16]
+            jne		mvLeft
+                inc		edx
+                jmp		topWalk
+            mvLeft:
+                dec		edx
+                jmp		topWalk
+        firstComplete:
+		mov		eax, '|'
+		cmp     ecx, 'd'
+		mov		ecx, 'd'
+        jne     seekOpposite
+        secondComplete:
 	mov		esp, ebp
 	pop		ebp
 	ret
@@ -422,12 +423,12 @@ gameloop:
 		resetGame:
 		push	DWORD [ebp + 12]
 		pop		DWORD [ebp - 4]
-
-		xor	eax, eax
-		mov	ecx, 500
-		lea	edi, [inputArray]
+			;clear the input array
+		xor		eax, eax
+		mov		ecx, 500
+		lea		edi, [inputArray]
 		cld
-		rep	stosb
+		rep		stosb
 		mov		DWORD [inputCount], 0
 
 		push	DWORD [ebp + 12]

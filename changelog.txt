@@ -1,0 +1,1 @@
+- Reworked the walkFunc, which is responsible for handling cursor function on the main menu.
