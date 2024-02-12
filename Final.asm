@@ -61,13 +61,17 @@ segment .bss
 	gameEnd		resd	1
 		;used for exiting the game
 	menuEnd		resd	1
+		;used for resetting the game
+	resetVar	resd	1
+		;used for when the undo button is pressed
+	undoPressed	resd	1
 		;used for printing the final string to the screen
 	frameBuffer	resb	2000
 		;used for various color interactions
 	lastColor	resd	1
 		;used for the undo function
 	inputCount	resd	1
-	inputArray	resb	500
+	inputArray	resb	1000
 		;This array stores the hint string read in from the board file.
 	hintStr		resb	384
 		;This array stores the names of all the game boards, and is
@@ -419,26 +423,26 @@ walkFunc:
 gameloop:
 	push	ebp
 	mov		ebp, esp
-		sub		esp, 8
+		sub		esp, 4
 		resetGame:
 		push	DWORD [ebp + 12]
 		pop		DWORD [ebp - 4]
 			;clear the input array
 		xor		eax, eax
-		mov		ecx, 500
+		mov		ecx, 1000
 		lea		edi, [inputArray]
 		cld
 		rep		stosb
 		mov		DWORD [inputCount], 0
-
+			;initialize the game state based on the board file
 		push	DWORD [ebp + 12]
 		push	DWORD [ebp + 8]
 		call	initGame
 		add		esp, 8
-		
+
+		mov		DWORD [resetVar], 0
 		game_loop:
-			cmp		DWORD [gameEnd], 1
-			je		game_loop_end	
+			mov		DWORD [undoPressed], 0
 				; draw the game board
 			push	board
 			push	24
@@ -447,89 +451,38 @@ gameloop:
 			add		esp, 12
 				; get an action from the user
 			call	getchar
-			wop:
-				; choose what to do
-				;If 'x', close the game
-			cmp		eax, 'x'
-			jne		contGame
-				inc		DWORD [gameEnd]
-				jmp		game_loop
-			contGame:
 				;check where to move the player based on input
-			cmp		eax, '-'
-			je		changeLevel
-			cmp		eax, '='
-			je		changeLevel
-			cmp		eax, '/'
-			je		undo
-			cmp		eax, 127
+			push 	DWORD [ebp + 12]
+			push	DWORD [ebp + 8]
+			call	checkInput
+			add		esp, 8
+
+			cmp		DWORD [gameEnd], 1
+			je		game_loop_end
+			cmp		DWORD [resetVar], 1
 			je		resetGame
-				call	checkInput
-				jmp		inputMade
-			changeLevel:
-			cmp		eax, '-'
-			jne		notSub
-				dec		DWORD [ebp + 12]
-				cmp		DWORD [ebp + 12], 0
-				jge		resetGame
-					dec		DWORD [ebp + 8]
-					mov		DWORD [ebp + 12], 9
-					jmp		resetGame
-			notSub:
-				inc		DWORD [ebp + 12]
-				cmp		DWORD [ebp + 12], 9
-				jle		resetGame
-					inc		DWORD [ebp + 8]
-					mov		DWORD [ebp + 12], 0
-					jmp		resetGame
-			undo:
-				cmp		DWORD [inputCount], 0
-				je		game_loop
-					mov		DWORD [ebp - 8], 0
-					dec		DWORD [inputCount]
-					push	DWORD [ebp + 12]
-					push	DWORD [ebp + 8]
-					call	initGame
-					add		esp, 8
-				
-					undoLoop:
-					xor		edx, edx
-					mov		edx, DWORD [ebp - 8]
-					cmp		edx, DWORD [inputCount]
-					je		endUndoLoop
-						xor		eax, eax
-						mov		al, BYTE [inputArray + edx]
-						call	checkInput
-						mov		ecx, eax
-
-						mov		eax, 24
-						mul		DWORD [ypos]
-						add		eax, DWORD [xpos]
-
-						call	checkCharGame
-					inc		DWORD [ebp - 8]
-					jmp		undoLoop
-					endUndoLoop:
-					jmp		game_loop
-			inputMade:
-			mov		ecx, DWORD [inputCount]
-			mov		BYTE [inputArray + ecx], al
-			inc		DWORD [inputCount]
-			mov		ecx, eax
-				; take the potential new pos for the player, and see if it's valid
-				; (W * y) + x = pos
-			mov		eax, 24
-			mul		DWORD [ypos]
-			add		eax, DWORD [xpos]
-				;call checkCharGame, passing it the current board index	
-			push	DWORD [ebp + 12] ;current level
-			call	checkCharGame
-			pop		ebx ;current level
-				;If the level was completed, proceed to the next one
-			cmp		ebx, DWORD [ebp - 4]
-			je		notComplete
-				jmp		notSub
-			notComplete:
+			cmp		DWORD [undoPressed], 1
+			je		game_loop
+					; clear the hint display
+				mov		DWORD [displayHint], 0
+				mov		ecx, DWORD [inputCount]
+				mov		BYTE [inputArray + ecx], al
+				inc		DWORD [inputCount]
+				mov		ecx, eax
+					; take the potential new pos for the player, and see if it's valid
+					; (W * y) + x = pos
+				mov		eax, 24
+				mul		DWORD [ypos]
+				add		eax, DWORD [xpos]
+					;call checkCharGame, passing it the current board index	
+				push	DWORD [ebp + 12] ;current level
+				call	checkCharGame
+				pop		ebx ;current level
+					;If the level was completed, proceed to the next one
+				cmp		ebx, DWORD [ebp - 4]
+				je		notComplete
+					jmp		notSub
+				notComplete:
 		jmp		game_loop
 		game_loop_end:
 	mov		esp, ebp
@@ -539,14 +492,23 @@ gameloop:
 checkInput:
 	push	ebp
 	mov		ebp, esp
+		sub		esp, 4
 			; store the current position
 			; we will test if the new position is legal
 			; if not, we will restore these
 		mov		esi, DWORD [xpos]
 		mov		edi, DWORD [ypos]
-			; clear the hint display
-		mov		DWORD [displayHint], 0
 
+		cmp		eax, 'x'
+		je		exitGame
+		cmp		eax, '-'
+		je		changeLevel
+		cmp		eax, '='
+		je		changeLevel
+		cmp		eax, '/'
+		je		undo
+		cmp		eax, 127
+		je		resetGame
 		cmp		al, 'w'
 		je 		moveUp
 		cmp		al, 'a'
@@ -558,6 +520,58 @@ checkInput:
 		cmp		al, 'h'
 		je		showHint
 		jmp		inputFound
+		exitGame:
+			inc		DWORD [gameEnd]
+			jmp		inputFound
+		changeLevel:
+			cmp		eax, '-'
+			jne		notSub
+				dec		DWORD [ebp + 12]
+				cmp		DWORD [ebp + 12], 0
+				jge		inputFound
+					dec		DWORD [ebp + 8]
+					mov		DWORD [ebp + 12], 9
+					inc		DWORD [resetVar]
+					jmp		inputFound
+			notSub:
+				inc		DWORD [ebp + 12]
+				cmp		DWORD [ebp + 12], 9
+				jle		inputFound
+					inc		DWORD [ebp + 8]
+					mov		DWORD [ebp + 12], 0
+					inc		DWORD [resetVar]
+					jmp		inputFound
+		undo:
+			inc		DWORD [undoPressed]
+			cmp		DWORD [inputCount], 0
+			je		inputFound
+				mov		DWORD [ebp - 4], 0
+				dec		DWORD [inputCount]
+				
+				push	DWORD [ebp + 12]
+				push	DWORD [ebp + 8]
+				call	initGame
+				add		esp, 8
+			
+				undoLoop:
+				xor		edx, edx
+				mov		edx, DWORD [ebp - 4]
+				cmp		edx, DWORD [inputCount]
+				je		endUndoLoop
+					xor		eax, eax
+					mov		al, BYTE [inputArray + edx]
+					call	checkInput
+					mov		ecx, eax
+
+					mov		eax, 24
+					mul		DWORD [ypos]
+					add		eax, DWORD [xpos]
+
+					call	checkCharGame
+				inc		DWORD [ebp - 4]
+				jmp		undoLoop
+				endUndoLoop:
+				jmp		inputFound
 		moveUp:
 			dec		DWORD [ypos]
 			jmp		inputFound
@@ -678,6 +692,7 @@ checkCharGame:
 	mov		esp, ebp
 	pop		ebp
 	ret
+	
 ;handles the interactions between the player and movable objects
 pushRock:
 	push	ebp
