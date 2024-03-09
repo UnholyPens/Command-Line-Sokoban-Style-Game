@@ -1,1 +1,3 @@
-- Reworked the walkFunc, which is responsible for handling cursor function on the main menu.
+- Massively reworked multiple functions, like walkFunc and searchObject
+- Renamed many labels for readability purposes
+- 

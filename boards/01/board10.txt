@@ -1,8 +1,8 @@
 [48;5;8m
 [48;5;22m
 9 8
-You could press page down to undo your moves, if this were a good game.
-
+If you make a mistake and don't want to start over, you can
+press / to undo your moves.
 
 ----------------------
 |TTTTTTTTTTTTTTTTTTTT|

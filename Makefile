@@ -1,11 +1,11 @@
-NAME=Final
+NAME=AssemblyAdv
 
-all: Final
+all: AssemblyAdv
 
 clean:
-	rm -rf Final Final.o rawmode.o
+	rm -rf AssemblyAdv AssemblyAdv.o rawmode.o
 
-Final: Final.asm
-	nasm -f elf -F dwarf -g Final.asm
+AssemblyAdv: AssemblyAdv.asm
+	nasm -f elf -F dwarf -g AssemblyAdv.asm
 	nasm -f elf -F dwarf -g rawmode.asm
-	gcc -no-pie -g -m32 -o Final Final.o rawmode.o
+	gcc -no-pie -g -m32 -o AssemblyAdv AssemblyAdv.o rawmode.o
