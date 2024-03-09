@@ -1,3 +1,0 @@
-- Massively reworked multiple functions, like walkFunc and searchObject
-- Renamed many labels for readability purposes
-- 
