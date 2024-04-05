@@ -459,6 +459,13 @@ gameCycle:
 		call	initGame
 		add		esp, 8
 		
+			;clear the input count and array
+		mov		DWORD [inputCount], 0
+		push	inputArray
+		push	1000
+		call	zeroArray
+		add		esp, 8
+
 		cmp		DWORD [gameEnd], 1
 		je		gameLoop_end
 		gameLoop:
@@ -816,11 +823,6 @@ pushObj:
 initGame:
 	push	ebp
 	mov		ebp, esp
-			;clear the input array
-		push	inputArray
-		push	1000
-		call	zeroArray
-		add		esp, 8
 
 		mov		eax, 220
 		mul		DWORD [ebp + 8]
@@ -842,7 +844,6 @@ initGame:
 			;iniitalize game variables
 		mov		DWORD [displayHint], 1
 		mov		DWORD [gameEnd], 0
-		mov		DWORD [inputCount], 0
 		mov		DWORD [resetVar], 0
 			;initialize door status
 		push	floorLayer
