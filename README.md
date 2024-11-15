@@ -26,5 +26,3 @@ T: Wall - Immovable, and impassable.
 B: Button - A button door will only open once all buttons have been activated. Currently, 'b' is inactive, and 'B' is active.
 
 #: Door - Simply a door blocking one's path. They are color coded to objects that pair with them, and will open depending on the requirements for each door.
-
-DIE
